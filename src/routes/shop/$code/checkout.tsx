@@ -108,7 +108,6 @@ function CheckoutPage() {
         p_city: form.city,
         p_state: form.state,
         p_pincode: form.pincode,
-        p_notes: undefined,
       });
       if (error) throw error;
       return data as string;
