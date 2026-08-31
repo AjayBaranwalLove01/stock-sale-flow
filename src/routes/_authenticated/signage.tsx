@@ -237,7 +237,10 @@ function AdsTab({ businessId }: { businessId: string | null }) {
   });
 
   async function handleFile(file: File) {
-    if (!businessId) return toast.error("Select a business first");
+    if (!businessId) {
+      toast.error("Select a business first");
+      return;
+    }
     setUploading(true);
     try {
       const m = await uploadSignageMedia(file, businessId);
@@ -792,7 +795,8 @@ function PlaylistsTab({ businessId }: { businessId: string | null }) {
 
   async function reorder(from: number, to: number) {
     const list = [...(items ?? [])];
-    const [moved] = list.splice(from, 1);
+    const moved = list.splice(from, 1)[0];
+    if (!moved) return;
     list.splice(to, 0, moved);
     await Promise.all(
       list.map((it, i) =>
@@ -1230,7 +1234,7 @@ function SettingsTab({ businessId }: { businessId: string | null }) {
       onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save"),
     });
 
-  const toggles: { key: keyof typeof s; label: string; hint: string }[] = [
+  const toggles: { key: string; label: string; hint: string }[] = [
     { key: "video_autoplay", label: "Video autoplay", hint: "Start videos as soon as they appear." },
     { key: "video_muted", label: "Mute videos", hint: "Required by most browsers for autoplay." },
     { key: "loop_playlist", label: "Loop playlist", hint: "Restart from the first advertisement." },
@@ -1300,14 +1304,14 @@ function SettingsTab({ businessId }: { businessId: string | null }) {
 
       <div className="divide-y rounded-md border">
         {toggles.map((t) => (
-          <div key={String(t.key)} className="flex items-center justify-between gap-4 px-3 py-2.5">
+          <div key={t.key} className="flex items-center justify-between gap-4 px-3 py-2.5">
             <div>
               <p className="text-sm font-medium">{t.label}</p>
               <p className="text-xs text-muted-foreground">{t.hint}</p>
             </div>
             <Switch
-              checked={Boolean(s[t.key])}
-              onCheckedChange={(v) => set({ [String(t.key)]: v })}
+              checked={Boolean((s as unknown as Record<string, unknown>)[t.key])}
+              onCheckedChange={(v) => set({ [t.key]: v })}
             />
           </div>
         ))}

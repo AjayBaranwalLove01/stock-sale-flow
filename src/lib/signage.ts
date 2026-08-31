@@ -87,7 +87,7 @@ export const VIDEO_TYPES = ["video/mp4", "video/webm"];
 const MAX_IMAGE = 10 * 1024 * 1024;
 const MAX_VIDEO = 200 * 1024 * 1024;
 
-export type UploadedMedia = { path: string; mime: string; size: number; duration?: number };
+export type UploadedMedia = { path: string; mime: string; size: number; duration?: number | undefined };
 
 function videoDuration(file: File): Promise<number> {
   return new Promise((resolve) => {
