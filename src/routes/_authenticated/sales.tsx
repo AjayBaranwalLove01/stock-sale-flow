@@ -655,9 +655,7 @@ function Invoices() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => window.print()}>
-              <Printer className="mr-1.5 size-4" /> Print
-            </Button>
+            {view && <ReceiptActions saleId={view.id} reprint />}
           </DialogFooter>
         </DialogContent>
       </Dialog>
