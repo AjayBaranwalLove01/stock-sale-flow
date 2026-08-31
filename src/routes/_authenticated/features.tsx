@@ -136,7 +136,7 @@ function FeaturesPage() {
                   return (
                     <div key={f.key} className="flex items-center justify-between gap-4 px-4 py-3">
                       <div className="min-w-0">
-                        <p className="flex items-center gap-2 text-sm font-medium">
+                        <div className="flex items-center gap-2 text-sm font-medium">
                           {f.name}
                           {f.depends_on && (
                             <Badge variant="outline" className="text-[10px]">
@@ -148,7 +148,7 @@ function FeaturesPage() {
                               off globally
                             </Badge>
                           )}
-                        </p>
+                        </div>
                         <p className="truncate text-xs text-muted-foreground">{f.description}</p>
                       </div>
                       <Switch
