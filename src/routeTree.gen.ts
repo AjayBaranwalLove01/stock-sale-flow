@@ -32,6 +32,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authenticated/suppliers'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as ShopCodeRouteRouteImport } from './routes/shop/$code/route'
+import { Route as ShopCodeIndexRouteImport } from './routes/shop/$code/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -147,12 +148,17 @@ const ShopCodeRouteRoute = ShopCodeRouteRouteImport.update({
   path: '/shop/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShopCodeIndexRoute = ShopCodeIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ShopCodeRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/shop/$code': typeof ShopCodeRouteRoute
+  '/shop/$code': typeof ShopCodeRouteRouteWithChildren
   '/audit': typeof AuthenticatedAuditRoute
   '/businesses': typeof AuthenticatedBusinessesRoute
   '/categories': typeof AuthenticatedCategoriesRoute
@@ -171,12 +177,12 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/users': typeof AuthenticatedUsersRoute
+  '/shop/$code/': typeof ShopCodeIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/shop/$code': typeof ShopCodeRouteRoute
   '/audit': typeof AuthenticatedAuditRoute
   '/businesses': typeof AuthenticatedBusinessesRoute
   '/categories': typeof AuthenticatedCategoriesRoute
@@ -195,6 +201,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/users': typeof AuthenticatedUsersRoute
+  '/shop/$code': typeof ShopCodeIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -202,7 +209,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/shop/$code': typeof ShopCodeRouteRoute
+  '/shop/$code': typeof ShopCodeRouteRouteWithChildren
   '/_authenticated/audit': typeof AuthenticatedAuditRoute
   '/_authenticated/businesses': typeof AuthenticatedBusinessesRoute
   '/_authenticated/categories': typeof AuthenticatedCategoriesRoute
@@ -221,6 +228,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
+  '/shop/$code/': typeof ShopCodeIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -247,12 +255,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/suppliers'
     | '/users'
+    | '/shop/$code/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/reset-password'
-    | '/shop/$code'
     | '/audit'
     | '/businesses'
     | '/categories'
@@ -271,6 +279,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/suppliers'
     | '/users'
+    | '/shop/$code'
   id:
     | '__root__'
     | '/'
@@ -296,6 +305,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/suppliers'
     | '/_authenticated/users'
+    | '/shop/$code/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -303,7 +313,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
-  ShopCodeRouteRoute: typeof ShopCodeRouteRoute
+  ShopCodeRouteRoute: typeof ShopCodeRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -469,6 +479,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopCodeRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/shop/$code/': {
+      id: '/shop/$code/'
+      path: '/'
+      fullPath: '/shop/$code/'
+      preLoaderRoute: typeof ShopCodeIndexRouteImport
+      parentRoute: typeof ShopCodeRouteRoute
+    }
   }
 }
 
@@ -517,12 +534,24 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface ShopCodeRouteRouteChildren {
+  ShopCodeIndexRoute: typeof ShopCodeIndexRoute
+}
+
+const ShopCodeRouteRouteChildren: ShopCodeRouteRouteChildren = {
+  ShopCodeIndexRoute: ShopCodeIndexRoute,
+}
+
+const ShopCodeRouteRouteWithChildren = ShopCodeRouteRoute._addFileChildren(
+  ShopCodeRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
-  ShopCodeRouteRoute: ShopCodeRouteRoute,
+  ShopCodeRouteRoute: ShopCodeRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
