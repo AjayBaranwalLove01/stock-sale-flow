@@ -71,8 +71,10 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { can } = useAuth();
+  const { enabled } = useEnabledFeatures();
 
-  const visible = ITEMS.filter((i) => can(i.module));
+  const visible = ITEMS.filter((i) => can(i.module) && (!i.feature || enabled(i.feature)));
+
   const groups = Array.from(new Set(visible.map((i) => i.group)));
 
   return (
