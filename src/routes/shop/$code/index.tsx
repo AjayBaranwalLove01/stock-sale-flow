@@ -1,4 +1,6 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
+import { BarcodeScannerDialog } from "@/components/BarcodeScanner";
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -197,5 +199,11 @@ function StoreHome() {
         </div>
       )}
     </div>
+      <BarcodeScannerDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        onDetected={(c) => void scanLookup(c)}
+        title="Scan a product barcode"
+      />
   );
 }
