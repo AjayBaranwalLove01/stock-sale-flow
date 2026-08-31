@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,10 +23,13 @@ import { useActiveBusiness } from "@/hooks/useTenant";
 import {
   enqueuePrintJob,
   fetchReceiptSale,
+  readPrintQueue,
+  removePrintJob,
   logReceiptAudit,
   PRINTER_TYPES,
   useReceipts,
   type PrinterType,
+  type PrintJob,
   type ReceiptSale,
 } from "@/lib/receipt";
 import {
@@ -318,6 +321,69 @@ export function TestPrintControl() {
       >
         <Printer className="mr-1.5 size-4" /> Test Print
       </Button>
+    </div>
+  );
+}
+
+/** Failed prints are queued locally so a cashier can retry without touching the sale. */
+export function PrintQueueList() {
+  const p = usePrinter();
+  const [jobs, setJobs] = useState(() => readPrintQueue());
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    const sync = () => setJobs(readPrintQueue());
+    window.addEventListener("sk-print-queue", sync);
+    return () => window.removeEventListener("sk-print-queue", sync);
+  }, []);
+
+  if (!jobs.length) return null;
+
+  const retry = async (job: PrintJob) => {
+    setBusy(job.id);
+    try {
+      const sale = await fetchReceiptSale(job.saleId);
+      await p.printReceipt(sale, job.format, true);
+      removePrintJob(job.id);
+      toast.success(`Reprinted ${job.invoiceNo}`);
+    } catch {
+      toast.error("Still could not print");
+    } finally {
+      setBusy(null);
+      setJobs(readPrintQueue());
+    }
+  };
+
+  return (
+    <div className="rounded-lg border">
+      <div className="border-b px-4 py-3 text-sm font-semibold">Print queue ({jobs.length})</div>
+      <ul className="divide-y">
+        {jobs.map((j) => (
+          <li key={j.id} className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
+            <div className="min-w-0">
+              <p className="font-medium">{j.invoiceNo}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {j.format} · {new Date(j.createdAt).toLocaleString("en-IN")} · {j.error ?? "Print failed"}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" disabled={busy === j.id} onClick={() => void retry(j)}>
+                <RotateCw className="mr-1.5 size-4" /> Retry
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  removePrintJob(j.id);
+                  setJobs(readPrintQueue());
+                }}
+              >
+                Dismiss
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
