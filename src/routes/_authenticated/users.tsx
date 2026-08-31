@@ -52,10 +52,29 @@ type Profile = {
   created_at: string;
 };
 
+type InviteRole = "admin" | "billing_user" | "inventory_user";
+const emptyInvite = { full_name: "", email: "", password: "", role: "billing_user" as InviteRole };
+
 function UsersPage() {
   const qc = useQueryClient();
   const { roles: myRoles, user } = useAuth();
   const isSuperAdmin = myRoles.includes("super_admin");
+  const [invite, setInvite] = useState<typeof emptyInvite | null>(null);
+  const addUserFn = useServerFn(createStaffUser);
+
+  const addUser = useMutation({
+    mutationFn: async () => {
+      if (!invite) return;
+      await addUserFn({ data: invite });
+    },
+    onSuccess: async () => {
+      toast.success("User created");
+      setInvite(null);
+      await qc.invalidateQueries({ queryKey: ["profiles-with-roles"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const { data, isLoading } = useQuery({
     queryKey: ["profiles-with-roles"],
