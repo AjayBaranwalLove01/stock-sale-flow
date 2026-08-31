@@ -1844,6 +1844,415 @@ export type Database = {
           },
         ]
       }
+      signage_ads: {
+        Row: {
+          ad_type: string
+          business_id: string
+          category_id: string | null
+          created_at: string
+          created_by: string | null
+          days_of_week: number[]
+          description: string | null
+          display_count: number
+          duration_seconds: number
+          end_date: string | null
+          end_time: string | null
+          id: string
+          last_displayed_at: string | null
+          media_mime: string | null
+          media_path: string | null
+          media_size: number | null
+          media_url: string | null
+          name: string
+          offer_text: string | null
+          product_id: string | null
+          promotion_id: string | null
+          qr_url: string | null
+          show_qr: boolean
+          sort_order: number
+          start_date: string | null
+          start_time: string | null
+          status: string
+          thumbnail_url: string | null
+          title: string | null
+          updated_at: string
+          use_full_video: boolean
+          use_live_data: boolean
+        }
+        Insert: {
+          ad_type?: string
+          business_id: string
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          days_of_week?: number[]
+          description?: string | null
+          display_count?: number
+          duration_seconds?: number
+          end_date?: string | null
+          end_time?: string | null
+          id?: string
+          last_displayed_at?: string | null
+          media_mime?: string | null
+          media_path?: string | null
+          media_size?: number | null
+          media_url?: string | null
+          name: string
+          offer_text?: string | null
+          product_id?: string | null
+          promotion_id?: string | null
+          qr_url?: string | null
+          show_qr?: boolean
+          sort_order?: number
+          start_date?: string | null
+          start_time?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string
+          use_full_video?: boolean
+          use_live_data?: boolean
+        }
+        Update: {
+          ad_type?: string
+          business_id?: string
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          days_of_week?: number[]
+          description?: string | null
+          display_count?: number
+          duration_seconds?: number
+          end_date?: string | null
+          end_time?: string | null
+          id?: string
+          last_displayed_at?: string | null
+          media_mime?: string | null
+          media_path?: string | null
+          media_size?: number | null
+          media_url?: string | null
+          name?: string
+          offer_text?: string | null
+          product_id?: string | null
+          promotion_id?: string | null
+          qr_url?: string | null
+          show_qr?: boolean
+          sort_order?: number
+          start_date?: string | null
+          start_time?: string | null
+          status?: string
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string
+          use_full_video?: boolean
+          use_live_data?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signage_ads_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_ads_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_ads_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_ads_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_ads_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_ads_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_ads_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "promotions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_ads_promotion_id_fkey"
+            columns: ["promotion_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_promotions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signage_displays: {
+        Row: {
+          business_id: string
+          created_at: string
+          id: string
+          last_seen_at: string | null
+          location: string | null
+          name: string
+          orientation: string
+          pair_code: string
+          paired_at: string | null
+          playlist_id: string | null
+          status: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          id?: string
+          last_seen_at?: string | null
+          location?: string | null
+          name: string
+          orientation?: string
+          pair_code: string
+          paired_at?: string | null
+          playlist_id?: string | null
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          id?: string
+          last_seen_at?: string | null
+          location?: string | null
+          name?: string
+          orientation?: string
+          pair_code?: string
+          paired_at?: string | null
+          playlist_id?: string | null
+          status?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signage_displays_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_displays_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_displays_playlist_id_fkey"
+            columns: ["playlist_id"]
+            isOneToOne: false
+            referencedRelation: "signage_playlists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signage_playlist_items: {
+        Row: {
+          ad_id: string
+          business_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          playlist_id: string
+          sort_order: number
+        }
+        Insert: {
+          ad_id: string
+          business_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          playlist_id: string
+          sort_order?: number
+        }
+        Update: {
+          ad_id?: string
+          business_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          playlist_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signage_playlist_items_ad_id_fkey"
+            columns: ["ad_id"]
+            isOneToOne: false
+            referencedRelation: "signage_ads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_playlist_items_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_playlist_items_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_playlist_items_playlist_id_fkey"
+            columns: ["playlist_id"]
+            isOneToOne: false
+            referencedRelation: "signage_playlists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signage_playlists: {
+        Row: {
+          business_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signage_playlists_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_playlists_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signage_settings: {
+        Row: {
+          business_id: string
+          created_at: string
+          default_duration: number
+          default_playlist_id: string | null
+          loop_playlist: boolean
+          orientation: string
+          show_business_name: boolean
+          show_clock: boolean
+          show_logo: boolean
+          transition: string
+          updated_at: string
+          video_autoplay: boolean
+          video_muted: boolean
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          default_duration?: number
+          default_playlist_id?: string | null
+          loop_playlist?: boolean
+          orientation?: string
+          show_business_name?: boolean
+          show_clock?: boolean
+          show_logo?: boolean
+          transition?: string
+          updated_at?: string
+          video_autoplay?: boolean
+          video_muted?: boolean
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          default_duration?: number
+          default_playlist_id?: string | null
+          loop_playlist?: boolean
+          orientation?: string
+          show_business_name?: boolean
+          show_clock?: boolean
+          show_logo?: boolean
+          transition?: string
+          updated_at?: string
+          video_autoplay?: boolean
+          video_muted?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signage_settings_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_settings_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
+            referencedRelation: "storefront_businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signage_settings_default_playlist_id_fkey"
+            columns: ["default_playlist_id"]
+            isOneToOne: false
+            referencedRelation: "signage_playlists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_adjustments: {
         Row: {
           adjustment_qty: number
@@ -2401,6 +2810,21 @@ export type Database = {
       set_order_status: {
         Args: { p_order_id: string; p_status: string }
         Returns: undefined
+      }
+      signage_display_content: { Args: { p_token: string }; Returns: Json }
+      signage_heartbeat: { Args: { p_token: string }; Returns: undefined }
+      signage_log_play: {
+        Args: { p_ad_id: string; p_token: string }
+        Returns: undefined
+      }
+      signage_new_pair_code: { Args: never; Returns: string }
+      signage_pair_display: {
+        Args: { p_code: string }
+        Returns: {
+          business_name: string
+          display_name: string
+          token: string
+        }[]
       }
       storefront_product_by_barcode: {
         Args: { p_barcode: string; p_business_id: string }

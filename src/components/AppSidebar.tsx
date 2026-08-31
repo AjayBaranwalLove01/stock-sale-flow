@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   Megaphone,
   ScanLine,
+  Tv,
 } from "lucide-react";
 import {
   Sidebar,
@@ -52,6 +53,7 @@ const ITEMS: NavItem[] = [
   { title: "Categories", url: "/categories", icon: FolderTree, module: "categories", group: "Catalogue" },
   { title: "Products", url: "/products", icon: Package, module: "products", group: "Catalogue" },
   { title: "Promotions", url: "/promotions", icon: Megaphone, module: "promotions", group: "Catalogue", feature: "promotions" },
+  { title: "Digital Signage", url: "/signage", icon: Tv, module: "signage", group: "Catalogue", feature: "digital_signage" },
   { title: "Customers", url: "/customers", icon: Users, module: "customers", group: "Contacts" },
   { title: "Suppliers", url: "/suppliers", icon: Truck, module: "suppliers", group: "Contacts" },
   { title: "Purchases", url: "/purchases", icon: ShoppingCart, module: "purchases", group: "Operations", feature: "purchases" },

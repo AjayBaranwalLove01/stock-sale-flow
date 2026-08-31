@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as DisplayRouteImport } from './routes/display'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
 import { Route as AuthenticatedBusinessesRouteImport } from './routes/_authenticated/businesses'
@@ -29,6 +30,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedReturnsRouteImport } from './routes/_authenticated/returns'
 import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/sales'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedSignageRouteImport } from './routes/_authenticated/signage'
 import { Route as AuthenticatedStockEntryRouteImport } from './routes/_authenticated/stock-entry'
 import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authenticated/suppliers'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
@@ -52,6 +54,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DisplayRoute = DisplayRouteImport.update({
+  id: '/display',
+  path: '/display',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -139,6 +146,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSignageRoute = AuthenticatedSignageRouteImport.update({
+  id: '/signage',
+  path: '/signage',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedStockEntryRoute = AuthenticatedStockEntryRouteImport.update({
   id: '/stock-entry',
   path: '/stock-entry',
@@ -193,6 +205,7 @@ const ShopCodeProductIdRoute = ShopCodeProductIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/display': typeof DisplayRoute
   '/reset-password': typeof ResetPasswordRoute
   '/shop/$code': typeof ShopCodeRouteRouteWithChildren
   '/audit': typeof AuthenticatedAuditRoute
@@ -211,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/returns': typeof AuthenticatedReturnsRoute
   '/sales': typeof AuthenticatedSalesRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/signage': typeof AuthenticatedSignageRoute
   '/stock-entry': typeof AuthenticatedStockEntryRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/users': typeof AuthenticatedUsersRoute
@@ -224,6 +238,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/display': typeof DisplayRoute
   '/reset-password': typeof ResetPasswordRoute
   '/audit': typeof AuthenticatedAuditRoute
   '/businesses': typeof AuthenticatedBusinessesRoute
@@ -241,6 +256,7 @@ export interface FileRoutesByTo {
   '/returns': typeof AuthenticatedReturnsRoute
   '/sales': typeof AuthenticatedSalesRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/signage': typeof AuthenticatedSignageRoute
   '/stock-entry': typeof AuthenticatedStockEntryRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/users': typeof AuthenticatedUsersRoute
@@ -256,6 +272,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/display': typeof DisplayRoute
   '/reset-password': typeof ResetPasswordRoute
   '/shop/$code': typeof ShopCodeRouteRouteWithChildren
   '/_authenticated/audit': typeof AuthenticatedAuditRoute
@@ -274,6 +291,7 @@ export interface FileRoutesById {
   '/_authenticated/returns': typeof AuthenticatedReturnsRoute
   '/_authenticated/sales': typeof AuthenticatedSalesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/signage': typeof AuthenticatedSignageRoute
   '/_authenticated/stock-entry': typeof AuthenticatedStockEntryRoute
   '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
@@ -289,6 +307,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/display'
     | '/reset-password'
     | '/shop/$code'
     | '/audit'
@@ -307,6 +326,7 @@ export interface FileRouteTypes {
     | '/returns'
     | '/sales'
     | '/settings'
+    | '/signage'
     | '/stock-entry'
     | '/suppliers'
     | '/users'
@@ -320,6 +340,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/display'
     | '/reset-password'
     | '/audit'
     | '/businesses'
@@ -337,6 +358,7 @@ export interface FileRouteTypes {
     | '/returns'
     | '/sales'
     | '/settings'
+    | '/signage'
     | '/stock-entry'
     | '/suppliers'
     | '/users'
@@ -351,6 +373,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/display'
     | '/reset-password'
     | '/shop/$code'
     | '/_authenticated/audit'
@@ -369,6 +392,7 @@ export interface FileRouteTypes {
     | '/_authenticated/returns'
     | '/_authenticated/sales'
     | '/_authenticated/settings'
+    | '/_authenticated/signage'
     | '/_authenticated/stock-entry'
     | '/_authenticated/suppliers'
     | '/_authenticated/users'
@@ -384,6 +408,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  DisplayRoute: typeof DisplayRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ShopCodeRouteRoute: typeof ShopCodeRouteRouteWithChildren
   ShopIndexRoute: typeof ShopIndexRoute
@@ -410,6 +435,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/display': {
+      id: '/display'
+      path: '/display'
+      fullPath: '/display'
+      preLoaderRoute: typeof DisplayRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -531,6 +563,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/signage': {
+      id: '/_authenticated/signage'
+      path: '/signage'
+      fullPath: '/signage'
+      preLoaderRoute: typeof AuthenticatedSignageRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/stock-entry': {
       id: '/_authenticated/stock-entry'
       path: '/stock-entry'
@@ -621,6 +660,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedReturnsRoute: typeof AuthenticatedReturnsRoute
   AuthenticatedSalesRoute: typeof AuthenticatedSalesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedSignageRoute: typeof AuthenticatedSignageRoute
   AuthenticatedStockEntryRoute: typeof AuthenticatedStockEntryRoute
   AuthenticatedSuppliersRoute: typeof AuthenticatedSuppliersRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
@@ -643,6 +683,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedReturnsRoute: AuthenticatedReturnsRoute,
   AuthenticatedSalesRoute: AuthenticatedSalesRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedSignageRoute: AuthenticatedSignageRoute,
   AuthenticatedStockEntryRoute: AuthenticatedStockEntryRoute,
   AuthenticatedSuppliersRoute: AuthenticatedSuppliersRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
@@ -675,6 +716,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  DisplayRoute: DisplayRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ShopCodeRouteRoute: ShopCodeRouteRouteWithChildren,
   ShopIndexRoute: ShopIndexRoute,
