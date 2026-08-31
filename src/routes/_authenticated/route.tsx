@@ -110,6 +110,15 @@ function AppLayout() {
 
   const currentModule = pathname.split("/")[1] as ModuleKey | undefined;
   const moduleDenied = currentModule && MODULE_PATHS.includes(currentModule) && !can(currentModule);
+  // Super Admin viewing "All Businesses" has no working context for business data screens.
+  const platformModules: ModuleKey[] = ["dashboard", "businesses", "features"];
+  const needsBusinessContext =
+    isSuperAdmin &&
+    !activeBusiness &&
+    !!currentModule &&
+    MODULE_PATHS.includes(currentModule) &&
+    !platformModules.includes(currentModule);
+
 
   return (
     <SidebarProvider>
