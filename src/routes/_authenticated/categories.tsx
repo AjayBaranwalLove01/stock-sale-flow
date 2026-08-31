@@ -1,0 +1,418 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { PageHeader, EmptyState, LoadingRows } from "@/components/shared";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
+import { Plus, Pencil, Trash2, Search, CornerDownRight } from "lucide-react";
+import { useCategories, logAudit, type Category } from "@/lib/queries";
+import { MultiImagePicker, Thumb } from "@/components/ImagePicker";
+import { fetchGallery, saveGallery, type GalleryImage } from "@/lib/images";
+import { dateFmt } from "@/lib/format";
+
+
+export const Route = createFileRoute("/_authenticated/categories")({
+  head: () => ({
+    meta: [
+      { title: "Categories — Ledger ERP" },
+      { name: "description", content: "Manage parent and child product categories." },
+      { property: "og:title", content: "Categories — Ledger ERP" },
+      { property: "og:description", content: "Manage parent and child product categories." },
+    ],
+  }),
+  component: CategoriesPage,
+});
+
+const empty = {
+  id: "",
+  code: "",
+  name: "",
+  parent_id: "none",
+  description: "",
+  image_sm: "",
+  image_md: "",
+  image_lg: "",
+  status: "active" as "active" | "inactive",
+};
+
+
+function CategoriesPage() {
+  const qc = useQueryClient();
+  const { data: categories, isLoading } = useCategories();
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(empty);
+  const [toDelete, setToDelete] = useState<Category | null>(null);
+  const [gallery, setGallery] = useState<GalleryImage[]>([]);
+
+  const { data: counts } = useQuery({
+    queryKey: ["category-product-counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("products").select("category_id");
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const p of data) map[p.category_id] = (map[p.category_id] ?? 0) + 1;
+      return map;
+    },
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        code: form.code.trim().toUpperCase(),
+        name: form.name.trim(),
+        parent_id: form.parent_id === "none" ? null : form.parent_id,
+        description: form.description.trim() || null,
+        image_sm: gallery[0]?.sm ?? null,
+        image_md: gallery[0]?.md ?? null,
+        image_lg: gallery[0]?.lg ?? null,
+        image_url: gallery[0]?.md ?? null,
+        status: form.status,
+      };
+
+      if (!payload.code || !payload.name) throw new Error("Code and name are required");
+      if (form.id) {
+        const { error } = await supabase.from("categories").update(payload).eq("id", form.id);
+        if (error) throw error;
+        await saveGallery("category", form.id, gallery);
+        await logAudit("Categories", "Category Updated", form.id, null, payload);
+      } else {
+        const { data, error } = await supabase.from("categories").insert(payload).select().single();
+        if (error) throw error;
+        await saveGallery("category", data.id, gallery);
+        await logAudit("Categories", "Category Created", data.id, null, payload);
+      }
+    },
+    onSuccess: () => {
+      toast.success(form.id ? "Category updated" : "Category created");
+      setOpen(false);
+      void qc.invalidateQueries({ queryKey: ["categories"] });
+      void qc.invalidateQueries({ queryKey: ["catalog-images"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (cat: Category) => {
+      if ((counts?.[cat.id] ?? 0) > 0)
+        throw new Error("Cannot delete: products are assigned to this category");
+      const children = (categories ?? []).filter((c) => c.parent_id === cat.id);
+      if (children.length) throw new Error("Cannot delete: this category has subcategories");
+      const { error } = await supabase.from("categories").delete().eq("id", cat.id);
+      if (error) throw error;
+      await logAudit("Categories", "Category Deleted", cat.id, cat, null);
+    },
+    onSuccess: () => {
+      toast.success("Category deleted");
+      setToDelete(null);
+      void qc.invalidateQueries({ queryKey: ["categories"] });
+    },
+    onError: (e: Error) => {
+      toast.error(e.message);
+      setToDelete(null);
+    },
+  });
+
+  const toggle = useMutation({
+    mutationFn: async (cat: Category) => {
+      const status = cat.status === "active" ? "inactive" : "active";
+      const { error } = await supabase.from("categories").update({ status }).eq("id", cat.id);
+      if (error) throw error;
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["categories"] }),
+  });
+
+  const parents = (categories ?? []).filter((c) => !c.parent_id);
+  const nameOf = useMemo(
+    () => new Map((categories ?? []).map((c) => [c.id, c.name])),
+    [categories],
+  );
+
+  const ordered = useMemo(() => {
+    const list = categories ?? [];
+    const rows: (Category & { depth: number })[] = [];
+    for (const p of list.filter((c) => !c.parent_id)) {
+      rows.push({ ...p, depth: 0 });
+      for (const c of list.filter((x) => x.parent_id === p.id)) rows.push({ ...c, depth: 1 });
+    }
+    return rows.filter((c) => {
+      const s = search.toLowerCase();
+      const match = !s || c.name.toLowerCase().includes(s) || c.code.toLowerCase().includes(s);
+      const st = filter === "all" || c.status === filter;
+      return match && st;
+    });
+  }, [categories, search, filter]);
+
+  return (
+    <div>
+      <PageHeader
+        title="Categories"
+        description="All products must belong to a category. Supports parent and child levels."
+        actions={
+          <Button
+            onClick={() => {
+              setForm(empty);
+              setGallery([]);
+              setOpen(true);
+            }}
+          >
+            <Plus className="mr-1.5 size-4" />
+            Add Category
+          </Button>
+        }
+      />
+
+      <Card className="overflow-hidden py-0 shadow-none">
+        <div className="flex flex-wrap items-center gap-2 border-b p-3">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-8"
+              placeholder="Search by name or code…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {isLoading ? (
+          <LoadingRows />
+        ) : ordered.length === 0 ? (
+          <EmptyState title="No categories yet" description="Create your first category to start adding products." />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Code</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Parent</TableHead>
+                <TableHead className="text-right">Products</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="w-[120px]" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {ordered.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell className="font-mono text-xs">{c.code}</TableCell>
+                  <TableCell>
+                    <span className={c.depth ? "flex items-center gap-1.5 pl-4" : "flex items-center gap-1.5 font-medium"}>
+                      {c.depth > 0 && <CornerDownRight className="size-3.5 text-muted-foreground" />}
+                      <Thumb path={c.image_sm} alt={c.name} className="size-8" />
+                      {c.name}
+                    </span>
+                  </TableCell>
+
+                  <TableCell className="text-muted-foreground">
+                    {c.parent_id ? nameOf.get(c.parent_id) : "—"}
+                  </TableCell>
+                  <TableCell className="tabular text-right">{counts?.[c.id] ?? 0}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={c.status === "active"}
+                        onCheckedChange={() => toggle.mutate(c)}
+                      />
+                      <Badge variant={c.status === "active" ? "secondary" : "outline"}>
+                        {c.status}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{dateFmt(c.created_at)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setForm({
+                          id: c.id,
+                          code: c.code,
+                          name: c.name,
+                          parent_id: c.parent_id ?? "none",
+                          description: c.description ?? "",
+                          image_sm: c.image_sm ?? "",
+                          image_md: c.image_md ?? "",
+                          image_lg: c.image_lg ?? "",
+                          status: c.status,
+                        });
+
+                        setGallery([]);
+                        void fetchGallery("category", c.id).then((g) => {
+                          setGallery(
+                            g.length
+                              ? g
+                              : c.image_md
+                                ? [{ sm: c.image_sm ?? "", md: c.image_md, lg: c.image_lg ?? "" }]
+                                : [],
+                          );
+                        });
+                        setOpen(true);
+                      }}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setToDelete(c)}>
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{form.id ? "Edit category" : "Add category"}</DialogTitle>
+            <DialogDescription>
+              Child categories let you group products, e.g. Electronics → Mobile.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Category code</Label>
+              <Input
+                value={form.code}
+                onChange={(e) => setForm({ ...form, code: e.target.value })}
+                placeholder="MOB"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Category name</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Mobile"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Parent category</Label>
+              <Select
+                value={form.parent_id}
+                onValueChange={(v) => setForm({ ...form, parent_id: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None (top level)</SelectItem>
+                  {parents
+                    .filter((p) => p.id !== form.id)
+                    .map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select
+                value={form.status}
+                onValueChange={(v: "active" | "inactive") => setForm({ ...form, status: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Description</Label>
+              <Textarea
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <MultiImagePicker
+                label="Category images (optional)"
+                folder="categories"
+                value={gallery}
+                onChange={setGallery}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={save.isPending} onClick={() => save.mutate()}>
+              Save category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this category?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This cannot be undone. Categories with products or subcategories cannot be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => toDelete && remove.mutate(toDelete)}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
