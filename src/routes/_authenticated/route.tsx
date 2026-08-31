@@ -35,6 +35,7 @@ const MODULE_PATHS: ModuleKey[] = [
   "purchases",
   "sales",
   "inventory",
+  "stock-entry",
   "payments",
   "returns",
   "reports",

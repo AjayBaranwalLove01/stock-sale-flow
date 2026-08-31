@@ -849,6 +849,7 @@ export type Database = {
       products: {
         Row: {
           barcode: string | null
+          barcode_type: string | null
           batch_number: string | null
           brand: string | null
           business_id: string
@@ -885,6 +886,7 @@ export type Database = {
         }
         Insert: {
           barcode?: string | null
+          barcode_type?: string | null
           batch_number?: string | null
           brand?: string | null
           business_id?: string
@@ -921,6 +923,7 @@ export type Database = {
         }
         Update: {
           barcode?: string | null
+          barcode_type?: string | null
           batch_number?: string | null
           brand?: string | null
           business_id?: string
@@ -2289,6 +2292,10 @@ export type Database = {
         Returns: string
       }
       current_business_id: { Args: never; Returns: string }
+      generate_internal_barcode: {
+        Args: { p_product_id?: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2302,6 +2309,25 @@ export type Database = {
       }
       is_staff: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      lookup_product_by_barcode: {
+        Args: { p_barcode: string }
+        Returns: {
+          barcode: string
+          barcode_type: string
+          category_id: string
+          current_stock: number
+          gst_rate: number
+          id: string
+          mrp: number
+          name: string
+          purchase_price: number
+          selling_price: number
+          sku: string
+          status: Database["public"]["Enums"]["record_status"]
+          tax_inclusive: boolean
+          unit: string
+        }[]
+      }
       place_order: {
         Args: {
           p_address: string
@@ -2317,9 +2343,25 @@ export type Database = {
         }
         Returns: string
       }
+      receive_stock_by_barcode: {
+        Args: { p_items: Json; p_notes?: string }
+        Returns: number
+      }
       set_order_status: {
         Args: { p_order_id: string; p_status: string }
         Returns: undefined
+      }
+      storefront_product_by_barcode: {
+        Args: { p_barcode: string; p_business_id: string }
+        Returns: {
+          id: string
+          in_stock: boolean
+          mrp: number
+          name: string
+          selling_price: number
+          sku: string
+          unit: string
+        }[]
       }
     }
     Enums: {

@@ -26,6 +26,7 @@ export type ModuleKey =
   | "orders"
   | "promotions"
   | "inventory"
+  | "stock-entry"
   | "payments"
   | "returns"
   | "reports"
@@ -46,6 +47,7 @@ const ALL: ModuleKey[] = [
   "orders",
   "promotions",
   "inventory",
+  "stock-entry",
   "payments",
   "returns",
   "reports",
@@ -69,6 +71,7 @@ export const ROLE_MODULES: Record<AppRole, ModuleKey[]> = {
     "orders",
     "promotions",
     "inventory",
+    "stock-entry",
     "payments",
     "returns",
     "reports",
@@ -77,7 +80,15 @@ export const ROLE_MODULES: Record<AppRole, ModuleKey[]> = {
     "audit",
   ],
   billing_user: ["dashboard", "customers", "sales", "orders", "payments", "returns"],
-  inventory_user: ["dashboard", "categories", "products", "suppliers", "purchases", "inventory"],
+  inventory_user: [
+    "dashboard",
+    "categories",
+    "products",
+    "suppliers",
+    "purchases",
+    "inventory",
+    "stock-entry",
+  ],
 };
 
 export interface AuthState {

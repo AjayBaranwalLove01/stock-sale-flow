@@ -1,4 +1,6 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
+import { BarcodeScannerDialog } from "@/components/BarcodeScanner";
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Search, ShoppingCart, Megaphone, ImageOff } from "lucide-react";
+import { Search, ShoppingCart, Megaphone, ImageOff, ScanLine } from "lucide-react";
 import { inr } from "@/lib/format";
 import {
   useCart,
@@ -47,6 +49,23 @@ function StoreHome() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("name");
+  const [scanOpen, setScanOpen] = useState(false);
+  const navigate = useNavigate();
+
+  /** Shopper barcode lookup — only returns products visible in this public catalogue. */
+  async function scanLookup(value: string) {
+    if (!business?.id) return;
+    const { data, error } = await supabase.rpc("storefront_product_by_barcode", {
+      p_business_id: business.id,
+      p_barcode: value,
+    });
+    const hit = (data as { id: string; name: string }[] | null)?.[0];
+    if (error || !hit) {
+      toast.error("No product found for that barcode in this store");
+      return;
+    }
+    void navigate({ to: "/shop/$code/product/$id", params: { code, id: hit.id } });
+  }
 
   const list = useMemo(() => {
     let rows = (products ?? []).filter(
@@ -99,6 +118,9 @@ function StoreHome() {
             className="h-10 border-0 shadow-none focus-visible:ring-0"
           />
         </div>
+        <Button variant="outline" className="h-10" onClick={() => setScanOpen(true)}>
+          <ScanLine className="mr-1.5 size-4" /> Scan
+        </Button>
         <Select value={category} onValueChange={setCategory}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Category" />
@@ -176,6 +198,13 @@ function StoreHome() {
           ))}
         </div>
       )}
+
+      <BarcodeScannerDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        onDetected={(c) => void scanLookup(c)}
+        title="Scan a product barcode"
+      />
     </div>
   );
 }

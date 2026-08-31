@@ -29,12 +29,25 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Search, Pencil, Upload, Download } from "lucide-react";
+import { Plus, Search, Pencil, Upload, Download, ScanLine, Camera, Wand2, Printer } from "lucide-react";
 import { useCategories, useProducts, useSuppliers, logAudit } from "@/lib/queries";
 import { inr, num, UNITS, GST_RATES, downloadCsv } from "@/lib/format";
 import { ProductImportDialog } from "@/components/ProductImportDialog";
 import { MultiImagePicker, Thumb } from "@/components/ImagePicker";
 import { fetchGallery, saveGallery, type GalleryImage } from "@/lib/images";
+import { BarcodeScannerDialog } from "@/components/BarcodeScanner";
+import { BarcodeLabelDialog, type LabelProduct } from "@/components/BarcodeLabel";
+import { useActiveBusiness } from "@/hooks/useTenant";
+import {
+  BARCODE_TYPES,
+  generateBarcode,
+  guessBarcodeType,
+  logBarcodeAudit,
+  lookupBarcode,
+  normaliseBarcode,
+  useBarcode,
+  validateBarcode,
+} from "@/lib/barcode";
 
 
 export const Route = createFileRoute("/_authenticated/products")({
@@ -56,6 +69,7 @@ const emptyProduct = {
   id: "",
   sku: "",
   barcode: "",
+  barcode_type: "",
   name: "",
   category_id: "",
   brand: "",
@@ -99,6 +113,33 @@ function ProductsPage() {
   const [form, setForm] = useState<ProductForm>(emptyProduct);
   const [step, setStep] = useState("category");
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const barcode = useBarcode();
+  const { data: activeBusiness } = useActiveBusiness();
+  const [scanOpen, setScanOpen] = useState(false);
+  const [barcodeNote, setBarcodeNote] = useState<string | null>(null);
+  const [labelProduct, setLabelProduct] = useState<LabelProduct | null>(null);
+
+  /** Scanned or typed barcode: block duplicates, otherwise continue creating the product. */
+  async function applyBarcode(code: string) {
+    const value = normaliseBarcode(code);
+    setForm((f) => ({ ...f, barcode: value, barcode_type: f.barcode_type || guessBarcodeType(value) }));
+    setBarcodeNote(null);
+    try {
+      const existing = await lookupBarcode(value);
+      if (existing && existing.id !== form.id) {
+        setBarcodeNote(
+          `Barcode already registered — ${existing.name} (SKU ${existing.sku}, stock ${num(existing.current_stock)} ${existing.unit}).`,
+        );
+        toast.error("Barcode already registered", {
+          description: `${existing.name} · SKU ${existing.sku} · Stock ${num(existing.current_stock)}`,
+        });
+      } else if (!existing) {
+        setBarcodeNote("New barcode — continue filling in the product details.");
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Barcode lookup failed");
+    }
+  }
 
   const parents = (categories ?? []).filter((c) => !c.parent_id);
   const childrenOf = (id: string) => (categories ?? []).filter((c) => c.parent_id === id);
@@ -109,9 +150,17 @@ function ProductsPage() {
     mutationFn: async () => {
       if (!form.category_id) throw new Error("Select a category first");
       if (!form.sku.trim() || !form.name.trim()) throw new Error("SKU and product name are required");
+      if (normaliseBarcode(form.barcode)) {
+        const problem = validateBarcode(form.barcode, form.barcode_type);
+        if (problem) throw new Error(problem);
+        const clash = await lookupBarcode(form.barcode);
+        if (clash && clash.id !== form.id)
+          throw new Error(`Barcode already registered to ${clash.name} (SKU ${clash.sku})`);
+      }
       const payload = {
         sku: form.sku.trim(),
-        barcode: form.barcode.trim() || null,
+        barcode: normaliseBarcode(form.barcode) || null,
+        barcode_type: normaliseBarcode(form.barcode) ? form.barcode_type || guessBarcodeType(form.barcode) : null,
         name: form.name.trim(),
         category_id: form.category_id,
         brand: form.brand.trim() || null,
@@ -145,6 +194,7 @@ function ProductsPage() {
         if (error) throw error;
         await saveGallery("product", form.id, gallery);
         await logAudit("Products", "Product Updated", form.id, null, payload);
+        if (payload.barcode) await logBarcodeAudit("Barcode Saved", form.id, payload.barcode);
       } else {
         const opening = Number(form.opening_stock);
         const { data, error } = await supabase
@@ -166,6 +216,8 @@ function ProductsPage() {
         }
         await saveGallery("product", data.id, gallery);
         await logAudit("Products", "Product Created", data.id, null, payload);
+        if (payload.barcode)
+          await logBarcodeAudit("Product Created Using Barcode", data.id, payload.barcode);
       }
     },
     onSuccess: () => {
@@ -337,6 +389,7 @@ function ProductsPage() {
                               id: p.id,
                               sku: p.sku,
                               barcode: p.barcode ?? "",
+                              barcode_type: p.barcode_type ?? "",
                               name: p.name,
                               category_id: p.category_id,
                               brand: p.brand ?? "",
@@ -456,8 +509,83 @@ function ProductsPage() {
               <F label="SKU">
                 <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
               </F>
-              <F label="Barcode">
-                <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
+              <F label="Barcode" full>
+                {barcode.enabled ? (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Input
+                        className="min-w-[200px] flex-1"
+                        placeholder="Scan, type or generate a barcode"
+                        value={form.barcode}
+                        onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                        onBlur={(e) => e.target.value && void applyBarcode(e.target.value)}
+                      />
+                      <Select
+                        value={form.barcode_type || "auto"}
+                        onValueChange={(v) => setForm({ ...form, barcode_type: v === "auto" ? "" : v })}
+                      >
+                        <SelectTrigger className="w-[170px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Detect type</SelectItem>
+                          {BARCODE_TYPES.map((t) => (
+                            <SelectItem key={t.value} value={t.value}>
+                              {t.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {barcode.can("scan_barcode") && (
+                        <Button type="button" variant="outline" onClick={() => setScanOpen(true)}>
+                          <Camera className="mr-1.5 size-4" /> Scan
+                        </Button>
+                      )}
+                      {barcode.can("generate_barcode") && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={async () => {
+                            try {
+                              const code = await generateBarcode(form.id || undefined);
+                              setForm((f) => ({ ...f, barcode: code, barcode_type: "CODE128" }));
+                              setBarcodeNote(`Internal barcode generated: ${code}`);
+                            } catch (e) {
+                              toast.error(e instanceof Error ? e.message : "Could not generate barcode");
+                            }
+                          }}
+                        >
+                          <Wand2 className="mr-1.5 size-4" /> Generate
+                        </Button>
+                      )}
+                      {barcode.can("print_barcode") && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={!normaliseBarcode(form.barcode)}
+                          onClick={() =>
+                            setLabelProduct({
+                              name: form.name || "Product",
+                              sku: form.sku,
+                              barcode: normaliseBarcode(form.barcode),
+                              barcode_type: form.barcode_type || null,
+                              selling_price: Number(form.selling_price || 0),
+                            })
+                          }
+                        >
+                          <Printer className="mr-1.5 size-4" /> Label
+                        </Button>
+                      )}
+                    </div>
+                    {barcodeNote && (
+                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <ScanLine className="size-3.5" /> {barcodeNote}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
+                )}
               </F>
               <F label="Brand">
                 <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
@@ -615,6 +743,18 @@ function ProductsPage() {
       </Dialog>
 
       <ProductImportDialog open={importOpen} onOpenChange={setImportOpen} />
+
+      <BarcodeScannerDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        onDetected={(code) => void applyBarcode(code)}
+        title="Scan product barcode"
+      />
+      <BarcodeLabelDialog
+        product={labelProduct}
+        businessName={activeBusiness?.name ?? "Store"}
+        onClose={() => setLabelProduct(null)}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, EmptyState, LoadingRows } from "@/components/shared";
@@ -28,10 +28,13 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Search, Trash2, Plus, Minus, Printer, Receipt } from "lucide-react";
+import { Search, Trash2, Plus, Minus, Printer, Receipt, ScanLine, Camera } from "lucide-react";
 import { useCategories, useCustomers, useProducts, useSales, useSettings } from "@/lib/queries";
 import { inr, dateTimeFmt, PAYMENT_METHODS } from "@/lib/format";
 import { Thumb } from "@/components/ImagePicker";
+import { BarcodeInput, BarcodeScannerDialog } from "@/components/BarcodeScanner";
+import { lookupBarcode, logBarcodeAudit, useBarcode } from "@/lib/barcode";
+import { Link } from "@tanstack/react-router";
 
 
 export const Route = createFileRoute("/_authenticated/sales")({
@@ -106,6 +109,11 @@ function Pos() {
   const [method, setMethod] = useState<string>("cash");
   const [paid, setPaid] = useState("");
   const [notes, setNotes] = useState("");
+  const barcode = useBarcode();
+  const [camera, setCamera] = useState(false);
+  const [scanMsg, setScanMsg] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState<string | null>(null);
+  const scannedCodes = useRef<string[]>([]);
 
   const filtered = useMemo(
     () =>
@@ -118,11 +126,22 @@ function Pos() {
   );
 
   function add(p: Product) {
+    if (Number(p.current_stock) <= 0) {
+      toast.error(`Out of stock — ${p.name}`);
+      return;
+    }
     setLines((prev) => {
       const i = prev.findIndex((l) => l.product_id === p.id);
       if (i >= 0) {
+        const line = prev[i]!;
+        if (line.quantity + 1 > Number(p.current_stock)) {
+          toast.error("Insufficient stock", {
+            description: `${p.name} — available ${Number(p.current_stock)}, requested ${line.quantity + 1}`,
+          });
+          return prev;
+        }
         const next = [...prev];
-        next[i] = { ...next[i]!, quantity: next[i]!.quantity + 1 };
+        next[i] = { ...line, quantity: line.quantity + 1 };
         return next;
       }
       return [
@@ -138,6 +157,39 @@ function Pos() {
         },
       ];
     });
+  }
+
+  /** Barcode scan: find product in this business, add to cart, keep the field ready. */
+  async function handleScan(code: string) {
+    setNotFound(null);
+    try {
+      const p = await lookupBarcode(code);
+      if (!p) {
+        setScanMsg(null);
+        setNotFound(code);
+        toast.error(`Product not found for ${code}`);
+        return;
+      }
+      if (p.status !== "active") {
+        toast.error(`${p.name} is not available for sale`);
+        return;
+      }
+      add({
+        id: p.id,
+        sku: p.sku,
+        name: p.name,
+        barcode: p.barcode,
+        category_id: p.category_id,
+        selling_price: Number(p.selling_price),
+        gst_rate: Number(p.gst_rate),
+        current_stock: Number(p.current_stock),
+        unit: p.unit,
+      });
+      scannedCodes.current = Array.from(new Set([...scannedCodes.current, p.barcode]));
+      setScanMsg(`${p.name} added · stock ${p.current_stock} ${p.unit}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not read that barcode");
+    }
   }
 
   function setLine(i: number, patch: Partial<Line>) {
@@ -186,6 +238,10 @@ function Pos() {
     },
     onSuccess: () => {
       toast.success("Invoice created");
+      if (scannedCodes.current.length) {
+        void logBarcodeAudit("Sale Completed Using Barcode", undefined, scannedCodes.current.join(", "));
+        scannedCodes.current = [];
+      }
       setLines([]);
       setInvoiceDiscount("0");
       setPaid("");
@@ -201,6 +257,36 @@ function Pos() {
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
       <Card className="overflow-hidden">
+        {barcode.can("barcode_sales") && (
+          <div className="space-y-2 border-b bg-muted/40 p-3">
+            <Label htmlFor="pos-scan" className="flex items-center gap-1.5 text-xs">
+              <ScanLine className="size-3.5" /> Barcode — scan to add, stays focused for the next item
+            </Label>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <BarcodeInput onScan={(c) => void handleScan(c)} placeholder="Scan / enter barcode" />
+              </div>
+              <Button type="button" variant="outline" onClick={() => setCamera(true)}>
+                <Camera className="mr-1.5 size-4" /> Camera
+              </Button>
+            </div>
+            {scanMsg && <p className="text-xs text-success">{scanMsg}</p>}
+            {notFound && (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs">
+                <span className="font-medium">Product not found for {notFound}</span>
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/products">Add new product</Link>
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => { setQ(notFound); setNotFound(null); }}>
+                  Search product
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setNotFound(null)}>
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2 border-b p-3">
           <div className="relative min-w-[200px] flex-1">
             <Search className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
@@ -311,9 +397,24 @@ function Pos() {
                     <Input
                       className="h-7 w-14 text-center"
                       value={l.quantity}
-                      onChange={(e) => setLine(i, { quantity: Number(e.target.value) || 0 })}
+                      onChange={(e) => {
+                        const qty = Number(e.target.value) || 0;
+                        if (qty > l.stock) {
+                          toast.error("Insufficient stock", {
+                            description: `${l.name} — available ${l.stock}, requested ${qty}`,
+                          });
+                          return;
+                        }
+                        setLine(i, { quantity: qty });
+                      }}
                     />
-                    <Button variant="outline" size="icon" className="size-7" onClick={() => setLine(i, { quantity: l.quantity + 1 })}>
+                    <Button variant="outline" size="icon" className="size-7" onClick={() =>
+                        l.quantity + 1 > l.stock
+                          ? toast.error("Insufficient stock", {
+                              description: `${l.name} — available ${l.stock}`,
+                            })
+                          : setLine(i, { quantity: l.quantity + 1 })
+                      }>
                       <Plus className="size-3" />
                     </Button>
                     <Input
@@ -392,6 +493,13 @@ function Pos() {
           <p className="mt-2 text-center text-[11px] text-muted-foreground">Negative stock is blocked in settings</p>
         )}
       </Card>
+
+      <BarcodeScannerDialog
+        open={camera}
+        onOpenChange={setCamera}
+        onDetected={(c) => void handleScan(c)}
+        title="Scan product to sell"
+      />
     </div>
   );
 }
