@@ -108,7 +108,9 @@ function AppLayout() {
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-card/80 px-4 backdrop-blur">
             <SidebarTrigger />
+            <BusinessSwitcher />
             <div className="flex-1" />
+
             {can("sales") && (
               <Button asChild size="sm" className="gap-1.5">
                 <Link to="/sales">
