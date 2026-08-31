@@ -493,6 +493,13 @@ function Pos() {
           <p className="mt-2 text-center text-[11px] text-muted-foreground">Negative stock is blocked in settings</p>
         )}
       </Card>
+
+      <BarcodeScannerDialog
+        open={camera}
+        onOpenChange={setCamera}
+        onDetected={(c) => void handleScan(c)}
+        title="Scan product to sell"
+      />
     </div>
   );
 }
