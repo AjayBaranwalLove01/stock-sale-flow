@@ -23,11 +23,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useServerFn } from "@tanstack/react-start";
+import { createStaffUser } from "@/lib/tenant.functions";
 import { toast } from "sonner";
-import { UserCog, ShieldCheck } from "lucide-react";
+import { UserCog, ShieldCheck, UserPlus } from "lucide-react";
 import { dateFmt } from "@/lib/format";
 import { ROLE_LABELS, useAuth, type AppRole } from "@/hooks/useAuth";
 import { logAudit } from "@/lib/queries";
+
 
 export const Route = createFileRoute("/_authenticated/users")({
   head: () => ({
