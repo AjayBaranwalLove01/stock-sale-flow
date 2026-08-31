@@ -99,9 +99,26 @@ export const createBusinessWithAdmin = createServerFn({ method: "POST" })
     const { admin_name, admin_email, admin_password, ...biz } = data;
     const { data: created, error } = await supabaseAdmin
       .from("businesses")
-      .insert({ ...biz, email: biz.email || null, created_by: context.userId })
+      .insert({
+        name: biz.name,
+        code: biz.code,
+        subdomain: biz.subdomain,
+        business_type: biz.business_type ?? null,
+        address: biz.address ?? null,
+        city: biz.city ?? null,
+        state: biz.state ?? null,
+        country: biz.country,
+        pincode: biz.pincode ?? null,
+        phone: biz.phone ?? null,
+        email: biz.email || null,
+        website: biz.website ?? null,
+        status: biz.status,
+        customer_site_enabled: biz.customer_site_enabled,
+        created_by: context.userId,
+      })
       .select("id, name")
       .single();
+
     if (error) throw new Error(error.message);
 
     const { data: user, error: uErr } = await supabaseAdmin.auth.admin.createUser({
