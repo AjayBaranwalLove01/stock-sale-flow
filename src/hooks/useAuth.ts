@@ -2,6 +2,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useEffect } from "react";
+import { bootstrapAccount } from "@/lib/tenant.functions";
+
 
 export type AppRole = "super_admin" | "admin" | "billing_user" | "inventory_user";
 
