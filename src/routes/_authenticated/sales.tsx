@@ -28,13 +28,14 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Search, Trash2, Plus, Minus, Printer, Receipt, ScanLine, Camera } from "lucide-react";
+import { Search, Trash2, Plus, Minus, Receipt, ScanLine, Camera } from "lucide-react";
 import { useCategories, useCustomers, useProducts, useSales, useSettings } from "@/lib/queries";
 import { inr, dateTimeFmt, PAYMENT_METHODS } from "@/lib/format";
 import { Thumb } from "@/components/ImagePicker";
 import { BarcodeInput, BarcodeScannerDialog } from "@/components/BarcodeScanner";
 import { lookupBarcode, logBarcodeAudit, useBarcode } from "@/lib/barcode";
 import { Link } from "@tanstack/react-router";
+import { PostSaleDialog, ReceiptActions } from "@/components/ReceiptPrint";
 
 
 export const Route = createFileRoute("/_authenticated/sales")({
@@ -114,6 +115,7 @@ function Pos() {
   const [scanMsg, setScanMsg] = useState<string | null>(null);
   const [notFound, setNotFound] = useState<string | null>(null);
   const scannedCodes = useRef<string[]>([]);
+  const [lastSaleId, setLastSaleId] = useState<string | null>(null);
 
   const filtered = useMemo(
     () =>
@@ -236,8 +238,9 @@ function Pos() {
       if (error) throw error;
       return data as string;
     },
-    onSuccess: () => {
+    onSuccess: (saleId: string) => {
       toast.success("Invoice created");
+      setLastSaleId(saleId);
       if (scannedCodes.current.length) {
         void logBarcodeAudit("Sale Completed Using Barcode", undefined, scannedCodes.current.join(", "));
         scannedCodes.current = [];
@@ -494,6 +497,8 @@ function Pos() {
         )}
       </Card>
 
+      <PostSaleDialog saleId={lastSaleId} onNewSale={() => setLastSaleId(null)} />
+
       <BarcodeScannerDialog
         open={camera}
         onOpenChange={setCamera}
@@ -579,9 +584,12 @@ function Invoices() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => setView(r)}>
-                      View
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setView(r)}>
+                        View
+                      </Button>
+                      <ReceiptActions saleId={r.id} reprint />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -647,9 +655,7 @@ function Invoices() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => window.print()}>
-              <Printer className="mr-1.5 size-4" /> Print
-            </Button>
+            {view && <ReceiptActions saleId={view.id} reprint />}
           </DialogFooter>
         </DialogContent>
       </Dialog>
