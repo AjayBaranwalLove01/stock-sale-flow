@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Search, Trash2, Plus, Minus, Printer, Receipt, ScanLine, Camera } from "lucide-react";
+import { Search, Trash2, Plus, Minus, Receipt, ScanLine, Camera } from "lucide-react";
 import { useCategories, useCustomers, useProducts, useSales, useSettings } from "@/lib/queries";
 import { inr, dateTimeFmt, PAYMENT_METHODS } from "@/lib/format";
 import { Thumb } from "@/components/ImagePicker";
