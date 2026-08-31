@@ -132,10 +132,13 @@ export const createBusinessWithAdmin = createServerFn({ method: "POST" })
       throw new Error(uErr?.message ?? "Could not create the business admin");
     }
 
-    await supabaseAdmin
-      .from("profiles")
-      .update({ business_id: created.id, full_name: admin_name })
-      .eq("id", user.user.id);
+    await supabaseAdmin.from("profiles").upsert({
+      id: user.user.id,
+      full_name: admin_name,
+      email: admin_email,
+      business_id: created.id,
+      account_type: "staff",
+    });
     await supabaseAdmin
       .from("user_roles")
       .insert({ user_id: user.user.id, role: "admin", business_id: created.id });
@@ -211,10 +214,13 @@ export const createStaffUser = createServerFn({ method: "POST" })
     });
     if (error || !user.user) throw new Error(error?.message ?? "Could not create the user");
 
-    await supabaseAdmin
-      .from("profiles")
-      .update({ business_id: businessId, full_name: data.full_name })
-      .eq("id", user.user.id);
+    await supabaseAdmin.from("profiles").upsert({
+      id: user.user.id,
+      full_name: data.full_name,
+      email: data.email,
+      business_id: businessId,
+      account_type: "staff",
+    });
     await supabaseAdmin
       .from("user_roles")
       .insert({ user_id: user.user.id, role: data.role, business_id: businessId });
