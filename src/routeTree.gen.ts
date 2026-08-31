@@ -33,6 +33,7 @@ import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authentica
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as ShopCodeRouteRouteImport } from './routes/shop/$code/route'
 import { Route as ShopCodeIndexRouteImport } from './routes/shop/$code/index'
+import { Route as ShopCodeCartRouteImport } from './routes/shop/$code/cart'
 import { Route as ShopCodeProductIdRouteImport } from './routes/shop/$code/product.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -154,6 +155,11 @@ const ShopCodeIndexRoute = ShopCodeIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ShopCodeRouteRoute,
 } as any)
+const ShopCodeCartRoute = ShopCodeCartRouteImport.update({
+  id: '/cart',
+  path: '/cart',
+  getParentRoute: () => ShopCodeRouteRoute,
+} as any)
 const ShopCodeProductIdRoute = ShopCodeProductIdRouteImport.update({
   id: '/product/$id',
   path: '/product/$id',
@@ -183,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/users': typeof AuthenticatedUsersRoute
+  '/shop/$code/cart': typeof ShopCodeCartRoute
   '/shop/$code/': typeof ShopCodeIndexRoute
   '/shop/$code/product/$id': typeof ShopCodeProductIdRoute
 }
@@ -208,6 +215,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
   '/users': typeof AuthenticatedUsersRoute
+  '/shop/$code/cart': typeof ShopCodeCartRoute
   '/shop/$code': typeof ShopCodeIndexRoute
   '/shop/$code/product/$id': typeof ShopCodeProductIdRoute
 }
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
+  '/shop/$code/cart': typeof ShopCodeCartRoute
   '/shop/$code/': typeof ShopCodeIndexRoute
   '/shop/$code/product/$id': typeof ShopCodeProductIdRoute
 }
@@ -264,6 +273,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/suppliers'
     | '/users'
+    | '/shop/$code/cart'
     | '/shop/$code/'
     | '/shop/$code/product/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -289,6 +299,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/suppliers'
     | '/users'
+    | '/shop/$code/cart'
     | '/shop/$code'
     | '/shop/$code/product/$id'
   id:
@@ -316,6 +327,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/suppliers'
     | '/_authenticated/users'
+    | '/shop/$code/cart'
     | '/shop/$code/'
     | '/shop/$code/product/$id'
   fileRoutesById: FileRoutesById
@@ -498,6 +510,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopCodeIndexRouteImport
       parentRoute: typeof ShopCodeRouteRoute
     }
+    '/shop/$code/cart': {
+      id: '/shop/$code/cart'
+      path: '/cart'
+      fullPath: '/shop/$code/cart'
+      preLoaderRoute: typeof ShopCodeCartRouteImport
+      parentRoute: typeof ShopCodeRouteRoute
+    }
     '/shop/$code/product/$id': {
       id: '/shop/$code/product/$id'
       path: '/product/$id'
@@ -554,11 +573,13 @@ const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 interface ShopCodeRouteRouteChildren {
+  ShopCodeCartRoute: typeof ShopCodeCartRoute
   ShopCodeIndexRoute: typeof ShopCodeIndexRoute
   ShopCodeProductIdRoute: typeof ShopCodeProductIdRoute
 }
 
 const ShopCodeRouteRouteChildren: ShopCodeRouteRouteChildren = {
+  ShopCodeCartRoute: ShopCodeCartRoute,
   ShopCodeIndexRoute: ShopCodeIndexRoute,
   ShopCodeProductIdRoute: ShopCodeProductIdRoute,
 }
