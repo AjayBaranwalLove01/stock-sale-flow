@@ -40,7 +40,12 @@ const MODULE_PATHS: ModuleKey[] = [
   "users",
   "settings",
   "audit",
+  "businesses",
+  "features",
+  "orders",
+  "promotions",
 ];
+
 
 
 export const Route = createFileRoute("/_authenticated")({
