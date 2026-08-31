@@ -20,6 +20,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth, ROLE_LABELS, type ModuleKey } from "@/hooks/useAuth";
+import { BusinessSwitcher } from "@/components/BusinessSwitcher";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { LogOut, User as UserIcon, Zap, ShieldAlert } from "lucide-react";
 
@@ -38,7 +40,12 @@ const MODULE_PATHS: ModuleKey[] = [
   "users",
   "settings",
   "audit",
+  "businesses",
+  "features",
+  "orders",
+  "promotions",
 ];
+
 
 
 export const Route = createFileRoute("/_authenticated")({
@@ -52,7 +59,7 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AppLayout() {
-  const { user, roles, status, loading, can } = useAuth();
+  const { user, roles, status, loading, can, accountType } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -73,11 +80,14 @@ function AppLayout() {
   }
 
   const blocked =
-    status === "inactive"
-      ? "Your account has been disabled by an administrator."
-      : roles.length === 0
-        ? "Your account is awaiting access. A Super Admin must assign your roles before you can use the system."
-        : null;
+    accountType === "customer"
+      ? "This is a shopper account. Use the store website you registered on to view your orders."
+      : status === "inactive"
+        ? "Your account has been disabled by an administrator."
+        : roles.length === 0
+          ? "Your account is awaiting access. A Super Admin must assign your roles before you can use the system."
+          : null;
+
 
   if (blocked) {
     return (
@@ -108,7 +118,9 @@ function AppLayout() {
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-card/80 px-4 backdrop-blur">
             <SidebarTrigger />
+            <BusinessSwitcher />
             <div className="flex-1" />
+
             {can("sales") && (
               <Button asChild size="sm" className="gap-1.5">
                 <Link to="/sales">

@@ -7,7 +7,7 @@ export type AppRole = "super_admin" | "admin" | "billing_user" | "inventory_user
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   super_admin: "Super Admin",
-  admin: "Admin",
+  admin: "Business Admin",
   billing_user: "Billing User",
   inventory_user: "Inventory User",
 };
@@ -21,13 +21,17 @@ export type ModuleKey =
   | "suppliers"
   | "purchases"
   | "sales"
+  | "orders"
+  | "promotions"
   | "inventory"
   | "payments"
   | "returns"
   | "reports"
   | "users"
   | "settings"
-  | "audit";
+  | "audit"
+  | "businesses"
+  | "features";
 
 const ALL: ModuleKey[] = [
   "dashboard",
@@ -37,6 +41,8 @@ const ALL: ModuleKey[] = [
   "suppliers",
   "purchases",
   "sales",
+  "orders",
+  "promotions",
   "inventory",
   "payments",
   "returns",
@@ -44,6 +50,8 @@ const ALL: ModuleKey[] = [
   "users",
   "settings",
   "audit",
+  "businesses",
+  "features",
 ];
 
 export const ROLE_MODULES: Record<AppRole, ModuleKey[]> = {
@@ -56,12 +64,17 @@ export const ROLE_MODULES: Record<AppRole, ModuleKey[]> = {
     "suppliers",
     "purchases",
     "sales",
+    "orders",
+    "promotions",
     "inventory",
     "payments",
     "returns",
     "reports",
+    "users",
+    "settings",
+    "audit",
   ],
-  billing_user: ["dashboard", "customers", "sales", "payments", "returns"],
+  billing_user: ["dashboard", "customers", "sales", "orders", "payments", "returns"],
   inventory_user: ["dashboard", "categories", "products", "suppliers", "purchases", "inventory"],
 };
 
@@ -69,6 +82,9 @@ export interface AuthState {
   user: User | null;
   roles: AppRole[];
   status: "active" | "inactive" | null;
+  businessId: string | null;
+  accountType: "staff" | "customer" | null;
+  isSuperAdmin: boolean;
   loading: boolean;
   can: (m: ModuleKey) => boolean;
   allowed: ModuleKey[];
@@ -82,15 +98,28 @@ export function useAuth(): AuthState {
     queryFn: async () => {
       const { data: userData } = await supabase.auth.getUser();
       const user = userData.user ?? null;
-      if (!user) return { user: null, roles: [] as AppRole[], status: null };
+      if (!user)
+        return {
+          user: null,
+          roles: [] as AppRole[],
+          status: null,
+          businessId: null,
+          accountType: null,
+        };
       const [{ data: roleRows }, { data: profile }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", user.id),
-        supabase.from("profiles").select("status").eq("id", user.id).maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("status, business_id, account_type")
+          .eq("id", user.id)
+          .maybeSingle(),
       ]);
       return {
         user,
         roles: (roleRows ?? []).map((r) => r.role as AppRole),
         status: (profile?.status ?? null) as "active" | "inactive" | null,
+        businessId: (profile?.business_id ?? null) as string | null,
+        accountType: (profile?.account_type ?? null) as "staff" | "customer" | null,
       };
     },
     staleTime: 30_000,
@@ -112,6 +141,9 @@ export function useAuth(): AuthState {
     user: data?.user ?? null,
     roles,
     status: data?.status ?? null,
+    businessId: data?.businessId ?? null,
+    accountType: data?.accountType ?? null,
+    isSuperAdmin: roles.includes("super_admin"),
     loading: isLoading,
     allowed,
     can: (m) => allowed.includes(m),

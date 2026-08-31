@@ -15,6 +15,10 @@ import {
   Settings,
   ScrollText,
   Warehouse,
+  Building2,
+  ToggleRight,
+  ShoppingBag,
+  Megaphone,
 } from "lucide-react";
 import {
   Sidebar,
@@ -29,6 +33,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth, type ModuleKey } from "@/hooks/useAuth";
+import { useEnabledFeatures } from "@/hooks/useTenant";
 
 interface NavItem {
   title: string;
@@ -36,32 +41,40 @@ interface NavItem {
   icon: typeof LayoutDashboard;
   module: ModuleKey;
   group: string;
+  feature?: string;
 }
 
 const ITEMS: NavItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, module: "dashboard", group: "Overview" },
+  { title: "Businesses", url: "/businesses", icon: Building2, module: "businesses", group: "Platform" },
+  { title: "Features", url: "/features", icon: ToggleRight, module: "features", group: "Platform" },
   { title: "Categories", url: "/categories", icon: FolderTree, module: "categories", group: "Catalogue" },
   { title: "Products", url: "/products", icon: Package, module: "products", group: "Catalogue" },
+  { title: "Promotions", url: "/promotions", icon: Megaphone, module: "promotions", group: "Catalogue", feature: "promotions" },
   { title: "Customers", url: "/customers", icon: Users, module: "customers", group: "Contacts" },
   { title: "Suppliers", url: "/suppliers", icon: Truck, module: "suppliers", group: "Contacts" },
-  { title: "Purchases", url: "/purchases", icon: ShoppingCart, module: "purchases", group: "Operations" },
+  { title: "Purchases", url: "/purchases", icon: ShoppingCart, module: "purchases", group: "Operations", feature: "purchases" },
   { title: "Sales / Billing", url: "/sales", icon: Receipt, module: "sales", group: "Operations" },
+  { title: "Online Orders", url: "/orders", icon: ShoppingBag, module: "orders", group: "Operations", feature: "online_orders" },
   { title: "Inventory", url: "/inventory", icon: Boxes, module: "inventory", group: "Operations" },
   { title: "Payments", url: "/payments", icon: Wallet, module: "payments", group: "Operations" },
   { title: "Returns", url: "/returns", icon: Undo2, module: "returns", group: "Operations" },
-  { title: "Reports", url: "/reports", icon: BarChart3, module: "reports", group: "Insights" },
+  { title: "Reports", url: "/reports", icon: BarChart3, module: "reports", group: "Insights", feature: "reports" },
   { title: "Users", url: "/users", icon: UserCog, module: "users", group: "Administration" },
   { title: "Settings", url: "/settings", icon: Settings, module: "settings", group: "Administration" },
-  { title: "Audit Log", url: "/audit", icon: ScrollText, module: "audit", group: "Administration" },
+  { title: "Audit Log", url: "/audit", icon: ScrollText, module: "audit", group: "Administration", feature: "audit_log" },
 ];
+
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { can } = useAuth();
+  const { enabled } = useEnabledFeatures();
 
-  const visible = ITEMS.filter((i) => can(i.module));
+  const visible = ITEMS.filter((i) => can(i.module) && (!i.feature || enabled(i.feature)));
+
   const groups = Array.from(new Set(visible.map((i) => i.group)));
 
   return (
