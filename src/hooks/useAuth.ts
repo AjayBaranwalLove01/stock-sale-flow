@@ -33,6 +33,7 @@ export type ModuleKey =
   | "users"
   | "settings"
   | "audit"
+  | "signage"
   | "businesses"
   | "features";
 
@@ -54,6 +55,7 @@ const ALL: ModuleKey[] = [
   "users",
   "settings",
   "audit",
+  "signage",
   "businesses",
   "features",
 ];
@@ -78,6 +80,7 @@ export const ROLE_MODULES: Record<AppRole, ModuleKey[]> = {
     "users",
     "settings",
     "audit",
+    "signage",
   ],
   billing_user: ["dashboard", "customers", "sales", "orders", "payments", "returns"],
   inventory_user: [
