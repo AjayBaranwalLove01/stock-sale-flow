@@ -132,13 +132,14 @@ export const createBusinessWithAdmin = createServerFn({ method: "POST" })
       throw new Error(uErr?.message ?? "Could not create the business admin");
     }
 
-    await supabaseAdmin.from("profiles").upsert({
+    const { error: pErr } = await supabaseAdmin.from("profiles").upsert({
       id: user.user.id,
       full_name: admin_name,
       email: admin_email,
       business_id: created.id,
       account_type: "staff",
     });
+    if (pErr) throw new Error(`profile: ${pErr.message}`);
     await supabaseAdmin
       .from("user_roles")
       .insert({ user_id: user.user.id, role: "admin", business_id: created.id });
