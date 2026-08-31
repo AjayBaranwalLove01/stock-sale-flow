@@ -216,7 +216,7 @@ export async function fetchReceiptSale(saleId: string): Promise<ReceiptSale> {
     round_off: Number(r["round_off"] ?? 0),
     grand_total: Number(r["grand_total"] ?? 0),
     paid_amount: Number(r["paid_amount"] ?? 0),
-    notes: (r["notes"] as string | null) ?? null,
+    notes: (row["notes"] as string | null) ?? null,
     items: (row.sale_items ?? []).map((it) => ({
       product_name: it.product_name,
       sku: it.products?.sku ?? null,
