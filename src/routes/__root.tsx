@@ -77,12 +77,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Ledger ERP — Inventory, Sales & Billing" },
+      { title: "Ajay Traders — Inventory, Billing & GST Reports" },
       {
         name: "description",
         content:
-          "GST-ready inventory, POS billing and business reporting in one place.",
+          "Ajay Traders runs stock, GST billing, purchases and business reports from a single dashboard.",
       },
+
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
