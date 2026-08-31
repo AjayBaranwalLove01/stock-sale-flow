@@ -20,6 +20,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth, ROLE_LABELS, type ModuleKey } from "@/hooks/useAuth";
+import { BusinessSwitcher } from "@/components/BusinessSwitcher";
+
 import { useQueryClient } from "@tanstack/react-query";
 import { LogOut, User as UserIcon, Zap, ShieldAlert } from "lucide-react";
 
