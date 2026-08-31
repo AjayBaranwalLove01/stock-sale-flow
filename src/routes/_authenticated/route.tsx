@@ -21,9 +21,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth, ROLE_LABELS, type ModuleKey } from "@/hooks/useAuth";
 import { BusinessSwitcher } from "@/components/BusinessSwitcher";
+import { useActiveBusiness } from "@/hooks/useTenant";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { LogOut, User as UserIcon, Zap, ShieldAlert } from "lucide-react";
+import { LogOut, User as UserIcon, Zap, ShieldAlert, Building2 } from "lucide-react";
 
 const MODULE_PATHS: ModuleKey[] = [
   "dashboard",
@@ -59,7 +60,8 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AppLayout() {
-  const { user, roles, status, loading, can, accountType } = useAuth();
+  const { user, roles, status, loading, can, accountType, isSuperAdmin } = useAuth();
+  const { data: activeBusiness } = useActiveBusiness();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -110,6 +112,15 @@ function AppLayout() {
 
   const currentModule = pathname.split("/")[1] as ModuleKey | undefined;
   const moduleDenied = currentModule && MODULE_PATHS.includes(currentModule) && !can(currentModule);
+  // Super Admin viewing "All Businesses" has no working context for business data screens.
+  const platformModules: ModuleKey[] = ["dashboard", "businesses", "features"];
+  const needsBusinessContext =
+    isSuperAdmin &&
+    !activeBusiness &&
+    !!currentModule &&
+    MODULE_PATHS.includes(currentModule) &&
+    !platformModules.includes(currentModule);
+
 
   return (
     <SidebarProvider>
@@ -170,9 +181,19 @@ function AppLayout() {
                   Your assigned roles don&apos;t include this section. Ask a Super Admin for access.
                 </p>
               </div>
+            ) : needsBusinessContext ? (
+              <div className="mx-auto mt-16 max-w-md rounded-xl border bg-card p-8 text-center">
+                <Building2 className="mx-auto mb-3 size-8 text-muted-foreground" />
+                <h2 className="text-lg font-semibold">Pick a business first</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  You are viewing all businesses. Choose one from the switcher at the top to work
+                  with its products, customers and transactions.
+                </p>
+              </div>
             ) : (
               <Outlet />
             )}
+
           </main>
         </div>
       </div>
