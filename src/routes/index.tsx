@@ -9,7 +9,10 @@ export const Route = createFileRoute("/")({
     try {
       const host = window.location.hostname;
       const business = await resolveStorefront({ data: { host } });
-      if (business) throw redirect({ to: "/shop/$code", params: { code: business.subdomain } });
+      if (business?.subdomain) {
+        throw redirect({ to: "/shop/$code", params: { code: business.subdomain } });
+      }
+
     } catch (e) {
       if (e && typeof e === "object" && "to" in e) throw e;
     }
