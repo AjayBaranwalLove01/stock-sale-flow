@@ -244,3 +244,55 @@ export const resolveStorefront = createServerFn({ method: "GET" })
       .maybeSingle();
     return biz ?? null;
   });
+
+/**
+ * Creates the profile row (and, for shoppers, the customer record) for the
+ * signed-in user. The very first staff account on the platform becomes Super Admin.
+ */
+export const bootstrapAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: existing } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("id", context.userId)
+      .maybeSingle();
+    if (existing) return { created: false };
+
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+    const meta = (authUser.user?.user_metadata ?? {}) as Record<string, unknown>;
+    const accountType = meta["account_type"] === "customer" ? "customer" : "staff";
+    const businessId = typeof meta["business_id"] === "string" ? meta["business_id"] : null;
+    const fullName = typeof meta["full_name"] === "string" ? meta["full_name"] : "";
+
+    await supabaseAdmin.from("profiles").insert({
+      id: context.userId,
+      full_name: fullName,
+      email: authUser.user?.email ?? null,
+      business_id: businessId,
+      account_type: accountType,
+    });
+
+    if (accountType === "staff") {
+      const { count } = await supabaseAdmin
+        .from("user_roles")
+        .select("id", { count: "exact", head: true });
+      if (!count) {
+        await supabaseAdmin
+          .from("user_roles")
+          .insert({ user_id: context.userId, role: "super_admin" });
+      }
+    } else if (businessId) {
+      await supabaseAdmin.from("customers").insert({
+        business_id: businessId,
+        name: fullName || "Customer",
+        email: authUser.user?.email ?? null,
+        auth_user_id: context.userId,
+        source: "storefront",
+      });
+    }
+
+    return { created: true };
+  });
