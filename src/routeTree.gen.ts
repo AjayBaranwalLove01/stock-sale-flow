@@ -31,6 +31,7 @@ import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authenticated/suppliers'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
+import { Route as ShopCodeRouteRouteImport } from './routes/shop/$code/route'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -141,11 +142,17 @@ const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ShopCodeRouteRoute = ShopCodeRouteRouteImport.update({
+  id: '/shop/$code',
+  path: '/shop/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/shop/$code': typeof ShopCodeRouteRoute
   '/audit': typeof AuthenticatedAuditRoute
   '/businesses': typeof AuthenticatedBusinessesRoute
   '/categories': typeof AuthenticatedCategoriesRoute
@@ -169,6 +176,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/shop/$code': typeof ShopCodeRouteRoute
   '/audit': typeof AuthenticatedAuditRoute
   '/businesses': typeof AuthenticatedBusinessesRoute
   '/categories': typeof AuthenticatedCategoriesRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/shop/$code': typeof ShopCodeRouteRoute
   '/_authenticated/audit': typeof AuthenticatedAuditRoute
   '/_authenticated/businesses': typeof AuthenticatedBusinessesRoute
   '/_authenticated/categories': typeof AuthenticatedCategoriesRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/reset-password'
+    | '/shop/$code'
     | '/audit'
     | '/businesses'
     | '/categories'
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/reset-password'
+    | '/shop/$code'
     | '/audit'
     | '/businesses'
     | '/categories'
@@ -266,6 +277,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/reset-password'
+    | '/shop/$code'
     | '/_authenticated/audit'
     | '/_authenticated/businesses'
     | '/_authenticated/categories'
@@ -291,6 +303,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ShopCodeRouteRoute: typeof ShopCodeRouteRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -449,6 +462,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUsersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/shop/$code': {
+      id: '/shop/$code'
+      path: '/shop/$code'
+      fullPath: '/shop/$code'
+      preLoaderRoute: typeof ShopCodeRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -502,6 +522,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ShopCodeRouteRoute: ShopCodeRouteRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
