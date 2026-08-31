@@ -21,9 +21,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth, ROLE_LABELS, type ModuleKey } from "@/hooks/useAuth";
 import { BusinessSwitcher } from "@/components/BusinessSwitcher";
+import { useActiveBusiness } from "@/hooks/useTenant";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { LogOut, User as UserIcon, Zap, ShieldAlert } from "lucide-react";
+import { LogOut, User as UserIcon, Zap, ShieldAlert, Building2 } from "lucide-react";
 
 const MODULE_PATHS: ModuleKey[] = [
   "dashboard",
@@ -59,7 +60,8 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AppLayout() {
-  const { user, roles, status, loading, can, accountType } = useAuth();
+  const { user, roles, status, loading, can, accountType, isSuperAdmin } = useAuth();
+  const { data: activeBusiness } = useActiveBusiness();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
