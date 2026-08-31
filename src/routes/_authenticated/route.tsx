@@ -59,7 +59,7 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AppLayout() {
-  const { user, roles, status, loading, can } = useAuth();
+  const { user, roles, status, loading, can, accountType } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -80,11 +80,14 @@ function AppLayout() {
   }
 
   const blocked =
-    status === "inactive"
-      ? "Your account has been disabled by an administrator."
-      : roles.length === 0
-        ? "Your account is awaiting access. A Super Admin must assign your roles before you can use the system."
-        : null;
+    accountType === "customer"
+      ? "This is a shopper account. Use the store website you registered on to view your orders."
+      : status === "inactive"
+        ? "Your account has been disabled by an administrator."
+        : roles.length === 0
+          ? "Your account is awaiting access. A Super Admin must assign your roles before you can use the system."
+          : null;
+
 
   if (blocked) {
     return (
