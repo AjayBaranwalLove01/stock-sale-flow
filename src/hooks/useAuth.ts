@@ -2,6 +2,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useEffect } from "react";
+import { bootstrapAccount } from "@/lib/tenant.functions";
+
 
 export type AppRole = "super_admin" | "admin" | "billing_user" | "inventory_user";
 
@@ -114,6 +116,27 @@ export function useAuth(): AuthState {
           .eq("id", user.id)
           .maybeSingle(),
       ]);
+
+      if (!profile) {
+        // First sign-in: create the profile (and Super Admin role for the very first staff user).
+        await bootstrapAccount();
+        const [{ data: roles2 }, { data: profile2 }] = await Promise.all([
+          supabase.from("user_roles").select("role").eq("user_id", user.id),
+          supabase
+            .from("profiles")
+            .select("status, business_id, account_type")
+            .eq("id", user.id)
+            .maybeSingle(),
+        ]);
+        return {
+          user,
+          roles: (roles2 ?? []).map((r) => r.role as AppRole),
+          status: (profile2?.status ?? null) as "active" | "inactive" | null,
+          businessId: (profile2?.business_id ?? null) as string | null,
+          accountType: (profile2?.account_type ?? null) as "staff" | "customer" | null,
+        };
+      }
+
       return {
         user,
         roles: (roleRows ?? []).map((r) => r.role as AppRole),
@@ -122,6 +145,7 @@ export function useAuth(): AuthState {
         accountType: (profile?.account_type ?? null) as "staff" | "customer" | null,
       };
     },
+
     staleTime: 30_000,
   });
 

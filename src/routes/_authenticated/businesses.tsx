@@ -393,10 +393,11 @@ function Text({
   onChange: (v: string) => void;
   type?: string;
 }) {
+  const id = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} />
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} type={type} value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

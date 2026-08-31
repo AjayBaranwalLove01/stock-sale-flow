@@ -23,11 +23,22 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useServerFn } from "@tanstack/react-start";
+import { createStaffUser } from "@/lib/tenant.functions";
 import { toast } from "sonner";
-import { UserCog, ShieldCheck } from "lucide-react";
+import { UserCog, ShieldCheck, UserPlus } from "lucide-react";
 import { dateFmt } from "@/lib/format";
 import { ROLE_LABELS, useAuth, type AppRole } from "@/hooks/useAuth";
 import { logAudit } from "@/lib/queries";
+
 
 export const Route = createFileRoute("/_authenticated/users")({
   head: () => ({
@@ -52,10 +63,29 @@ type Profile = {
   created_at: string;
 };
 
+type InviteRole = "admin" | "billing_user" | "inventory_user";
+const emptyInvite = { full_name: "", email: "", password: "", role: "billing_user" as InviteRole };
+
 function UsersPage() {
   const qc = useQueryClient();
   const { roles: myRoles, user } = useAuth();
   const isSuperAdmin = myRoles.includes("super_admin");
+  const [invite, setInvite] = useState<typeof emptyInvite | null>(null);
+  const addUserFn = useServerFn(createStaffUser);
+
+  const addUser = useMutation({
+    mutationFn: async () => {
+      if (!invite) return;
+      await addUserFn({ data: invite });
+    },
+    onSuccess: async () => {
+      toast.success("User created");
+      setInvite(null);
+      await qc.invalidateQueries({ queryKey: ["profiles-with-roles"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const { data, isLoading } = useQuery({
     queryKey: ["profiles-with-roles"],
@@ -139,8 +169,74 @@ function UsersPage() {
     <div>
       <PageHeader
         title="Users & Roles"
-        description="Team members sign up through the login page; assign their access here."
+        description="Team members of this business, and the modules each of them can use."
+        actions={
+          <Button className="gap-1.5" onClick={() => setInvite({ ...emptyInvite })}>
+            <UserPlus className="size-4" />
+            Add user
+          </Button>
+        }
       />
+
+      <Dialog open={!!invite} onOpenChange={(o) => !o && setInvite(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add a team member</DialogTitle>
+          </DialogHeader>
+          {invite && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Full name</Label>
+                <Input
+                  value={invite.full_name}
+                  onChange={(e) => setInvite({ ...invite, full_name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Email</Label>
+                <Input
+                  type="email"
+                  value={invite.email}
+                  onChange={(e) => setInvite({ ...invite, email: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Temporary password</Label>
+                <Input
+                  type="password"
+                  value={invite.password}
+                  onChange={(e) => setInvite({ ...invite, password: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Role</Label>
+                <Select
+                  value={invite.role}
+                  onValueChange={(v) => setInvite({ ...invite, role: v as InviteRole })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Business Admin</SelectItem>
+                    <SelectItem value="billing_user">Billing User</SelectItem>
+                    <SelectItem value="inventory_user">Inventory User</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInvite(null)}>
+              Cancel
+            </Button>
+            <Button disabled={addUser.isPending} onClick={() => addUser.mutate()}>
+              Create user
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <div className="mb-5 grid gap-4 sm:grid-cols-3">
         <StatCard label="Team Members" value={profiles.length} icon={UserCog} />
