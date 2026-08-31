@@ -136,6 +136,23 @@ export type Database = {
           logo_url: string | null
           low_stock_threshold: number
           phone: string | null
+          printer_connection: string
+          printer_host: string | null
+          printer_name: string | null
+          printer_port: number | null
+          receipt_auto_print: boolean
+          receipt_copies: number
+          receipt_enabled: boolean
+          receipt_footer: string | null
+          receipt_printer_type: string
+          receipt_return_policy: string | null
+          receipt_show_barcode: boolean
+          receipt_show_cashier: boolean
+          receipt_show_customer: boolean
+          receipt_show_logo: boolean
+          receipt_show_qr: boolean
+          receipt_show_tax: boolean
+          receipt_support_info: string | null
           singleton: boolean
           state: string | null
           terms_conditions: string | null
@@ -160,6 +177,23 @@ export type Database = {
           logo_url?: string | null
           low_stock_threshold?: number
           phone?: string | null
+          printer_connection?: string
+          printer_host?: string | null
+          printer_name?: string | null
+          printer_port?: number | null
+          receipt_auto_print?: boolean
+          receipt_copies?: number
+          receipt_enabled?: boolean
+          receipt_footer?: string | null
+          receipt_printer_type?: string
+          receipt_return_policy?: string | null
+          receipt_show_barcode?: boolean
+          receipt_show_cashier?: boolean
+          receipt_show_customer?: boolean
+          receipt_show_logo?: boolean
+          receipt_show_qr?: boolean
+          receipt_show_tax?: boolean
+          receipt_support_info?: string | null
           singleton?: boolean
           state?: string | null
           terms_conditions?: string | null
@@ -184,6 +218,23 @@ export type Database = {
           logo_url?: string | null
           low_stock_threshold?: number
           phone?: string | null
+          printer_connection?: string
+          printer_host?: string | null
+          printer_name?: string | null
+          printer_port?: number | null
+          receipt_auto_print?: boolean
+          receipt_copies?: number
+          receipt_enabled?: boolean
+          receipt_footer?: string | null
+          receipt_printer_type?: string
+          receipt_return_policy?: string | null
+          receipt_show_barcode?: boolean
+          receipt_show_cashier?: boolean
+          receipt_show_customer?: boolean
+          receipt_show_logo?: boolean
+          receipt_show_qr?: boolean
+          receipt_show_tax?: boolean
+          receipt_support_info?: string | null
           singleton?: boolean
           state?: string | null
           terms_conditions?: string | null

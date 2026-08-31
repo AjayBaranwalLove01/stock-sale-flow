@@ -15,6 +15,9 @@ import { toast } from "sonner";
 import { Save } from "lucide-react";
 import { useSettings, logAudit } from "@/lib/queries";
 import { UNITS, GST_RATES } from "@/lib/format";
+import { PRINTER_CONNECTIONS, PRINTER_TYPES, useReceipts } from "@/lib/receipt";
+import { PrintQueueList, TestPrintControl } from "@/components/ReceiptPrint";
+
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
@@ -47,7 +50,25 @@ interface Form {
   default_gst?: Val;
   currency?: Val;
   financial_year_start?: Val;
+  receipt_enabled?: Val;
+  receipt_printer_type?: Val;
+  receipt_auto_print?: Val;
+  receipt_copies?: Val;
+  receipt_show_logo?: Val;
+  receipt_show_barcode?: Val;
+  receipt_show_qr?: Val;
+  receipt_show_customer?: Val;
+  receipt_show_tax?: Val;
+  receipt_show_cashier?: Val;
+  printer_name?: Val;
+  printer_connection?: Val;
+  printer_host?: Val;
+  printer_port?: Val;
+  receipt_footer?: Val;
+  receipt_return_policy?: Val;
+  receipt_support_info?: Val;
 }
+
 
 function SettingsPage() {
   const { data, isLoading } = useSettings();
@@ -79,7 +100,25 @@ function SettingsPage() {
         default_gst: Number(f.default_gst ?? 18),
         currency: String(f.currency ?? "INR"),
         financial_year_start: String(f.financial_year_start ?? "2024-04-01"),
+        receipt_enabled: Boolean(f.receipt_enabled),
+        receipt_printer_type: String(f.receipt_printer_type ?? "thermal80"),
+        receipt_auto_print: Boolean(f.receipt_auto_print),
+        receipt_copies: Math.max(1, Number(f.receipt_copies ?? 1)),
+        receipt_show_logo: Boolean(f.receipt_show_logo),
+        receipt_show_barcode: Boolean(f.receipt_show_barcode),
+        receipt_show_qr: Boolean(f.receipt_show_qr),
+        receipt_show_customer: Boolean(f.receipt_show_customer),
+        receipt_show_tax: Boolean(f.receipt_show_tax),
+        receipt_show_cashier: Boolean(f.receipt_show_cashier),
+        printer_name: (f.printer_name as string) || null,
+        printer_connection: String(f.printer_connection ?? "system"),
+        printer_host: (f.printer_host as string) || null,
+        printer_port: f.printer_port ? Number(f.printer_port) : null,
+        receipt_footer: (f.receipt_footer as string) || null,
+        receipt_return_policy: (f.receipt_return_policy as string) || null,
+        receipt_support_info: (f.receipt_support_info as string) || null,
       };
+
       if (!payload.business_name.trim()) throw new Error("Business name is required");
       const { error } = await supabase
         .from("business_settings")
@@ -114,6 +153,8 @@ function SettingsPage() {
           <TabsTrigger value="business">Business</TabsTrigger>
           <TabsTrigger value="invoice">Invoice & Tax</TabsTrigger>
           <TabsTrigger value="inventory">Inventory</TabsTrigger>
+          <TabsTrigger value="receipt">Receipt Printer</TabsTrigger>
+
         </TabsList>
 
         <TabsContent value="business" className="mt-4">
@@ -214,10 +255,150 @@ function SettingsPage() {
             </div>
           </Card>
         </TabsContent>
+
+        <TabsContent value="receipt" className="mt-4">
+          <ReceiptTab f={f} set={set} />
+        </TabsContent>
       </Tabs>
+
     </div>
   );
 }
+
+function ReceiptTab({ f, set }: { f: Form; set: (k: keyof Form, v: Val) => void }) {
+  const { can, receiptEnabled, thermalEnabled, a4Enabled } = useReceipts();
+
+  if (!can("manage_printer_settings"))
+    return (
+      <Card className="p-5 text-sm text-muted-foreground">
+        Printer settings are managed by your Business Admin.
+      </Card>
+    );
+
+  const toggle = (k: keyof Form, label: string, hint?: string) => (
+    <div className="flex items-center justify-between rounded-md border p-3">
+      <div>
+        <Label>{label}</Label>
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      </div>
+      <Switch checked={Boolean(f[k])} onCheckedChange={(v) => set(k, v)} />
+    </div>
+  );
+
+  const types = PRINTER_TYPES.filter((t) =>
+    t.value.startsWith("thermal") ? thermalEnabled : a4Enabled,
+  );
+
+  return (
+    <div className="space-y-4">
+      <Card className="grid gap-4 p-5 md:grid-cols-2">
+        <div className="md:col-span-2">
+          {toggle("receipt_enabled", "Receipt printing", "Turn receipt printing on for this business.")}
+        </div>
+        <div>
+          <Label>Printer type / paper</Label>
+          <Select
+            value={String(f.receipt_printer_type ?? "thermal80")}
+            onValueChange={(v) => set("receipt_printer_type", v)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(types.length ? types : PRINTER_TYPES).map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Field label="Copies" type="number" v={f.receipt_copies} onChange={(v) => set("receipt_copies", v)} />
+        {toggle("receipt_auto_print", "Auto print after sale", "Prints only after the sale is saved.")}
+        {toggle("receipt_show_logo", "Show logo")}
+        {toggle("receipt_show_customer", "Show customer information")}
+        {toggle("receipt_show_tax", "Show tax details")}
+        {toggle("receipt_show_cashier", "Show cashier")}
+        {toggle("receipt_show_barcode", "Show invoice barcode")}
+        {toggle("receipt_show_qr", "Show invoice QR code")}
+      </Card>
+
+      <Card className="grid gap-4 p-5 md:grid-cols-2">
+        <div className="md:col-span-2 text-sm font-semibold">Printer configuration</div>
+        <Field label="Printer name" v={f.printer_name} onChange={(v) => set("printer_name", v)} />
+        <div>
+          <Label>Connection</Label>
+          <Select
+            value={String(f.printer_connection ?? "system")}
+            onValueChange={(v) => set("printer_connection", v)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PRINTER_CONNECTIONS.map((c) => (
+                <SelectItem key={c.value} value={c.value}>
+                  {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {String(f.printer_connection) === "network" && (
+          <>
+            <Field label="Printer host / IP" v={f.printer_host} onChange={(v) => set("printer_host", v)} />
+            <Field label="Port" type="number" v={f.printer_port} onChange={(v) => set("printer_port", v)} />
+          </>
+        )}
+        <p className="md:col-span-2 text-xs text-muted-foreground">
+          Browsers cannot talk to USB printers directly, so receipts are sent through the system print dialog
+          sized for the selected paper. Network and local print-service settings are stored for a future print
+          agent without changing the POS flow.
+        </p>
+        <div className="md:col-span-2">
+          <TestPrintControl />
+        </div>
+      </Card>
+
+      <Card className="grid gap-4 p-5">
+        <div className="text-sm font-semibold">Receipt footer</div>
+        <div>
+          <Label>Thank you message</Label>
+          <Textarea
+            rows={2}
+            value={String(f.receipt_footer ?? "")}
+            onChange={(e) => set("receipt_footer", e.target.value)}
+          />
+        </div>
+        <div>
+          <Label>Return / exchange policy</Label>
+          <Textarea
+            rows={2}
+            value={String(f.receipt_return_policy ?? "")}
+            onChange={(e) => set("receipt_return_policy", e.target.value)}
+          />
+        </div>
+        <div>
+          <Label>Customer support information</Label>
+          <Textarea
+            rows={2}
+            value={String(f.receipt_support_info ?? "")}
+            onChange={(e) => set("receipt_support_info", e.target.value)}
+          />
+        </div>
+      </Card>
+
+      {!receiptEnabled && (
+        <p className="text-xs text-muted-foreground">
+          Receipt printing is currently unavailable — check the platform feature switches.
+        </p>
+      )}
+
+      <PrintQueueList />
+    </div>
+  );
+}
+
 
 function Field({
   label,
