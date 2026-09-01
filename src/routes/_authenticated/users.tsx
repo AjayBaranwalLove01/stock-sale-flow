@@ -52,7 +52,13 @@ export const Route = createFileRoute("/_authenticated/users")({
   component: UsersPage,
 });
 
-const ALL_ROLES: AppRole[] = ["super_admin", "admin", "billing_user", "inventory_user"];
+const ALL_ROLES: AppRole[] = [
+  "super_admin",
+  "admin",
+  "billing_user",
+  "inventory_user",
+  "credit_officer",
+];
 
 type Profile = {
   id: string;
@@ -60,10 +66,11 @@ type Profile = {
   email: string | null;
   phone: string | null;
   status: "active" | "inactive";
+  can_verify_collections: boolean;
   created_at: string;
 };
 
-type InviteRole = "admin" | "billing_user" | "inventory_user";
+type InviteRole = "admin" | "billing_user" | "inventory_user" | "credit_officer";
 const emptyInvite = { full_name: "", email: "", password: "", role: "billing_user" as InviteRole };
 
 function UsersPage() {
@@ -150,6 +157,24 @@ function UsersPage() {
     else toast.success(`Password reset link sent to ${targetEmail}`);
   }
 
+  const toggleVerifier = useMutation({
+    mutationFn: async (p: Profile) => {
+      const next = !p.can_verify_collections;
+      const { error } = await supabase
+        .from("profiles")
+        .update({ can_verify_collections: next })
+        .eq("id", p.id);
+      if (error) throw error;
+      await logAudit("Users", "Collection Verification Rights Changed", p.id, p.can_verify_collections, next);
+    },
+    onSuccess: () => {
+      toast.success("Verification rights updated");
+      void qc.invalidateQueries({ queryKey: ["profiles-with-roles"] });
+      void qc.invalidateQueries({ queryKey: ["can-verify-collections"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const toggleStatus = useMutation({
 
     mutationFn: async (p: Profile) => {
@@ -221,6 +246,7 @@ function UsersPage() {
                     <SelectItem value="admin">Business Admin</SelectItem>
                     <SelectItem value="billing_user">Billing User</SelectItem>
                     <SelectItem value="inventory_user">Inventory User</SelectItem>
+                    <SelectItem value="credit_officer">Credit Collection Officer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -326,6 +352,14 @@ function UsersPage() {
                       <Button
                         variant="ghost"
                         size="sm"
+                        disabled={!isSuperAdmin}
+                        onClick={() => toggleVerifier.mutate(p)}
+                      >
+                        {p.can_verify_collections ? "Revoke verify" : "Allow verify"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         disabled={!isSuperAdmin || p.id === user?.id}
                         onClick={() => toggleStatus.mutate(p)}
                       >
@@ -370,7 +404,9 @@ function UsersPage() {
                         ? "All operational modules and reports."
                         : r === "billing_user"
                           ? "Sales, customers, payments and returns."
-                          : "Products, categories, suppliers, purchases and inventory."}
+                          : r === "credit_officer"
+                            ? "Field collection of customer credit (udhar); entries need admin verification."
+                            : "Products, categories, suppliers, purchases and inventory."}
                   </p>
                 </div>
               </label>

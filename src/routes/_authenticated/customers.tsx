@@ -54,6 +54,8 @@ type Row = {
   opening_balance: number;
   balance: number;
   credit_limit: number;
+  credit_allowed: boolean;
+  credit_terms_days: number;
   status: "active" | "inactive";
 };
 
@@ -69,6 +71,8 @@ const empty = {
   pincode: "",
   opening_balance: "0",
   credit_limit: "0",
+  credit_allowed: false,
+  credit_terms_days: "15",
   status: "active" as "active" | "inactive",
 };
 
@@ -106,6 +110,8 @@ function CustomersPage() {
         pincode: form.pincode || null,
         opening_balance: Number(form.opening_balance || 0),
         credit_limit: Number(form.credit_limit || 0),
+        credit_allowed: form.credit_allowed,
+        credit_terms_days: Math.max(Number(form.credit_terms_days || 15), 1),
         status: form.status,
       };
       if (form.id) {
@@ -144,6 +150,8 @@ function CustomersPage() {
       pincode: r.pincode ?? "",
       opening_balance: String(r.opening_balance ?? 0),
       credit_limit: String(r.credit_limit ?? 0),
+      credit_allowed: !!r.credit_allowed,
+      credit_terms_days: String(r.credit_terms_days ?? 15),
       status: r.status,
     });
     setOpen(true);
@@ -247,6 +255,11 @@ function CustomersPage() {
                     <TableCell className="tabular text-right font-medium">{inr(r.balance)}</TableCell>
                     <TableCell>
                       <Badge variant={r.status === "active" ? "secondary" : "outline"}>{r.status}</Badge>
+                      {r.credit_allowed ? (
+                        <Badge variant="outline" className="ml-1 text-[10px]">
+                          Udhar
+                        </Badge>
+                      ) : null}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => edit(r)}>
@@ -314,6 +327,29 @@ function CustomersPage() {
                 value={form.credit_limit}
                 onChange={(e) => setForm({ ...form, credit_limit: e.target.value })}
               />
+            </div>
+            <div className="rounded-lg border p-3 sm:col-span-2">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={form.credit_allowed}
+                  onCheckedChange={(v) => setForm({ ...form, credit_allowed: v })}
+                />
+                <Label>Allow credit purchase (Udhar)</Label>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                When enabled, this customer can buy on credit up to the credit limit above.
+              </p>
+              {form.credit_allowed && (
+                <div className="mt-3 max-w-[200px]">
+                  <Label>Credit terms (days)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={form.credit_terms_days}
+                    onChange={(e) => setForm({ ...form, credit_terms_days: e.target.value })}
+                  />
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 sm:col-span-2">
               <Switch

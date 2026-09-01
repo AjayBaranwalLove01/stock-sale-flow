@@ -33,6 +33,7 @@ export type ReceiptPermission =
   | "manage_printer_settings";
 
 const PERMISSIONS: Record<AppRole, ReceiptPermission[]> = {
+  credit_officer: [],
   super_admin: [
     "print_receipt",
     "reprint_receipt",

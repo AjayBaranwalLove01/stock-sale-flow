@@ -5,13 +5,19 @@ import { useEffect } from "react";
 import { bootstrapAccount } from "@/lib/tenant.functions";
 
 
-export type AppRole = "super_admin" | "admin" | "billing_user" | "inventory_user";
+export type AppRole =
+  | "super_admin"
+  | "admin"
+  | "billing_user"
+  | "inventory_user"
+  | "credit_officer";
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   super_admin: "Super Admin",
   admin: "Business Admin",
   billing_user: "Billing User",
   inventory_user: "Inventory User",
+  credit_officer: "Credit Collection Officer",
 };
 
 /** Module keys used by the sidebar and route guards. */
@@ -34,6 +40,8 @@ export type ModuleKey =
   | "settings"
   | "audit"
   | "signage"
+  | "credit"
+  | "collections"
   | "businesses"
   | "features";
 
@@ -56,6 +64,8 @@ const ALL: ModuleKey[] = [
   "settings",
   "audit",
   "signage",
+  "credit",
+  "collections",
   "businesses",
   "features",
 ];
@@ -81,8 +91,19 @@ export const ROLE_MODULES: Record<AppRole, ModuleKey[]> = {
     "settings",
     "audit",
     "signage",
+    "credit",
+    "collections",
   ],
-  billing_user: ["dashboard", "customers", "sales", "orders", "payments", "returns"],
+  billing_user: [
+    "dashboard",
+    "customers",
+    "sales",
+    "orders",
+    "payments",
+    "returns",
+    "credit",
+    "collections",
+  ],
   inventory_user: [
     "dashboard",
     "categories",
@@ -92,6 +113,7 @@ export const ROLE_MODULES: Record<AppRole, ModuleKey[]> = {
     "inventory",
     "stock-entry",
   ],
+  credit_officer: ["dashboard", "collections"],
 };
 
 export interface AuthState {

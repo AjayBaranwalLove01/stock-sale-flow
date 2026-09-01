@@ -188,7 +188,7 @@ export const createStaffUser = createServerFn({ method: "POST" })
         full_name: z.string().trim().min(2).max(120),
         email: z.string().trim().email().max(160),
         password: z.string().min(8).max(72),
-        role: z.enum(["admin", "billing_user", "inventory_user"]),
+        role: z.enum(["admin", "billing_user", "inventory_user", "credit_officer"]),
       })
       .parse(d),
   )
