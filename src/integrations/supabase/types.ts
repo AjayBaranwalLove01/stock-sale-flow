@@ -124,7 +124,9 @@ export type Database = {
           business_id: string
           business_name: string
           created_at: string
+          credit_block_when_overdue: boolean
           currency: string
+          default_credit_terms_days: number
           default_gst: number
           default_unit: string
           email: string | null
@@ -165,7 +167,9 @@ export type Database = {
           business_id: string
           business_name?: string
           created_at?: string
+          credit_block_when_overdue?: boolean
           currency?: string
+          default_credit_terms_days?: number
           default_gst?: number
           default_unit?: string
           email?: string | null
@@ -206,7 +210,9 @@ export type Database = {
           business_id?: string
           business_name?: string
           created_at?: string
+          credit_block_when_overdue?: boolean
           currency?: string
+          default_credit_terms_days?: number
           default_gst?: number
           default_unit?: string
           email?: string | null
@@ -455,6 +461,293 @@ export type Database = {
           },
         ]
       }
+      credit_collection_audit_logs: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          amount: number | null
+          business_id: string
+          collection_entry_id: string
+          comments: string | null
+          created_at: string
+          credit_transaction_id: string | null
+          id: string
+          new_status: string | null
+          payment_method: string | null
+          previous_status: string | null
+          reference_number: string | null
+          remarks: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          amount?: number | null
+          business_id: string
+          collection_entry_id: string
+          comments?: string | null
+          created_at?: string
+          credit_transaction_id?: string | null
+          id?: string
+          new_status?: string | null
+          payment_method?: string | null
+          previous_status?: string | null
+          reference_number?: string | null
+          remarks?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          amount?: number | null
+          business_id?: string
+          collection_entry_id?: string
+          comments?: string | null
+          created_at?: string
+          credit_transaction_id?: string | null
+          id?: string
+          new_status?: string | null
+          payment_method?: string | null
+          previous_status?: string | null
+          reference_number?: string | null
+          remarks?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_collection_audit_logs_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_collection_audit_logs_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_collection_audit_logs_collection_entry_id_fkey"
+            columns: ["collection_entry_id"]
+            isOneToOne: false
+            referencedRelation: "credit_collection_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_collection_audit_logs_credit_transaction_id_fkey"
+            columns: ["credit_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "credit_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_collection_entries: {
+        Row: {
+          amount: number
+          business_id: string
+          collection_date: string
+          collection_officer_id: string | null
+          created_at: string
+          credit_transaction_id: string
+          customer_id: string
+          id: string
+          payment_id: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"]
+          reference_doc: string | null
+          reference_number: string | null
+          rejection_reason: string | null
+          remarks: string | null
+          status: string
+          updated_at: string
+          verification_comments: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          amount: number
+          business_id: string
+          collection_date?: string
+          collection_officer_id?: string | null
+          created_at?: string
+          credit_transaction_id: string
+          customer_id: string
+          id?: string
+          payment_id?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          reference_doc?: string | null
+          reference_number?: string | null
+          rejection_reason?: string | null
+          remarks?: string | null
+          status?: string
+          updated_at?: string
+          verification_comments?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          amount?: number
+          business_id?: string
+          collection_date?: string
+          collection_officer_id?: string | null
+          created_at?: string
+          credit_transaction_id?: string
+          customer_id?: string
+          id?: string
+          payment_id?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"]
+          reference_doc?: string | null
+          reference_number?: string | null
+          rejection_reason?: string | null
+          remarks?: string | null
+          status?: string
+          updated_at?: string
+          verification_comments?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_collection_entries_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_collection_entries_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_collection_entries_credit_transaction_id_fkey"
+            columns: ["credit_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "credit_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_collection_entries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_collection_entries_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "customer_payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_transactions: {
+        Row: {
+          business_id: string
+          created_at: string
+          created_by: string | null
+          credit_date: string
+          customer_id: string
+          due_date: string
+          id: string
+          notes: string | null
+          order_id: string | null
+          original_amount: number
+          outstanding_amount: number
+          paid_amount: number
+          reference_no: string
+          sale_id: string | null
+          settled_at: string | null
+          settled_on_time: boolean | null
+          status: string
+          terms_days: number
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          created_by?: string | null
+          credit_date?: string
+          customer_id: string
+          due_date: string
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          original_amount: number
+          outstanding_amount: number
+          paid_amount?: number
+          reference_no: string
+          sale_id?: string | null
+          settled_at?: string | null
+          settled_on_time?: boolean | null
+          status?: string
+          terms_days?: number
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          created_by?: string | null
+          credit_date?: string
+          customer_id?: string
+          due_date?: string
+          id?: string
+          notes?: string | null
+          order_id?: string | null
+          original_amount?: number
+          outstanding_amount?: number
+          paid_amount?: number
+          reference_no?: string
+          sale_id?: string | null
+          settled_at?: string | null
+          settled_on_time?: boolean | null
+          status?: string
+          terms_days?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_transactions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_transactions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_transactions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_transactions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_transactions_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_payments: {
         Row: {
           amount: number
@@ -534,7 +827,9 @@ export type Database = {
           business_id: string
           city: string | null
           created_at: string
+          credit_allowed: boolean
           credit_limit: number
+          credit_terms_days: number
           email: string | null
           gstin: string | null
           id: string
@@ -554,7 +849,9 @@ export type Database = {
           business_id?: string
           city?: string | null
           created_at?: string
+          credit_allowed?: boolean
           credit_limit?: number
+          credit_terms_days?: number
           email?: string | null
           gstin?: string | null
           id?: string
@@ -574,7 +871,9 @@ export type Database = {
           business_id?: string
           city?: string | null
           created_at?: string
+          credit_allowed?: boolean
           credit_limit?: number
+          credit_terms_days?: number
           email?: string | null
           gstin?: string | null
           id?: string
@@ -1052,6 +1351,7 @@ export type Database = {
           account_type: string
           active_business_id: string | null
           business_id: string | null
+          can_verify_collections: boolean
           created_at: string
           email: string | null
           full_name: string
@@ -1064,6 +1364,7 @@ export type Database = {
           account_type?: string
           active_business_id?: string | null
           business_id?: string | null
+          can_verify_collections?: boolean
           created_at?: string
           email?: string | null
           full_name?: string
@@ -1076,6 +1377,7 @@ export type Database = {
           account_type?: string
           active_business_id?: string | null
           business_id?: string | null
+          can_verify_collections?: boolean
           created_at?: string
           email?: string | null
           full_name?: string
@@ -2721,6 +3023,17 @@ export type Database = {
         Returns: string
       }
       can_access_business: { Args: { _business_id: string }; Returns: boolean }
+      can_verify_collections: { Args: never; Returns: boolean }
+      create_credit_sale: {
+        Args: {
+          p_customer_id: string
+          p_due_date?: string
+          p_invoice_discount: number
+          p_items: Json
+          p_notes?: string
+        }
+        Returns: string
+      }
       create_purchase: {
         Args: {
           p_due_date: string
@@ -2763,6 +3076,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_credit_officer: { Args: never; Returns: boolean }
       is_feature_enabled: {
         Args: { _business_id: string; _key: string }
         Returns: boolean
@@ -2788,6 +3102,22 @@ export type Database = {
           unit: string
         }[]
       }
+      mark_overdue_credits: { Args: never; Returns: number }
+      place_credit_order: {
+        Args: {
+          p_address: string
+          p_business_id: string
+          p_city: string
+          p_email: string
+          p_items: Json
+          p_name: string
+          p_notes?: string
+          p_phone: string
+          p_pincode: string
+          p_state: string
+        }
+        Returns: string
+      }
       place_order: {
         Args: {
           p_address: string
@@ -2806,6 +3136,28 @@ export type Database = {
       receive_stock_by_barcode: {
         Args: { p_items: Json; p_notes?: string }
         Returns: number
+      }
+      record_credit_collection: {
+        Args: {
+          p_amount: number
+          p_collection_date: string
+          p_credit_transaction_id: string
+          p_method: string
+          p_reference?: string
+          p_remarks?: string
+        }
+        Returns: string
+      }
+      refresh_credit_status: { Args: { p_txn_id: string }; Returns: undefined }
+      resubmit_credit_collection: {
+        Args: {
+          p_amount: number
+          p_entry_id: string
+          p_method: string
+          p_reference?: string
+          p_remarks?: string
+        }
+        Returns: undefined
       }
       set_order_status: {
         Args: { p_order_id: string; p_status: string }
@@ -2838,9 +3190,23 @@ export type Database = {
           unit: string
         }[]
       }
+      verify_credit_collection: {
+        Args: {
+          p_action: string
+          p_comments?: string
+          p_entry_id: string
+          p_reason?: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
-      app_role: "super_admin" | "admin" | "billing_user" | "inventory_user"
+      app_role:
+        | "super_admin"
+        | "admin"
+        | "billing_user"
+        | "inventory_user"
+        | "credit_officer"
       inv_txn_type:
         | "opening"
         | "purchase"
@@ -2977,7 +3343,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["super_admin", "admin", "billing_user", "inventory_user"],
+      app_role: [
+        "super_admin",
+        "admin",
+        "billing_user",
+        "inventory_user",
+        "credit_officer",
+      ],
       inv_txn_type: [
         "opening",
         "purchase",
