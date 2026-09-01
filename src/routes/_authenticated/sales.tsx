@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { Search, Trash2, Plus, Minus, Receipt, ScanLine, Camera } from "lucide-react";
 import { useCategories, useCustomers, useProducts, useSales, useSettings } from "@/lib/queries";
 import { inr, dateTimeFmt, PAYMENT_METHODS } from "@/lib/format";
+import { useEnabledFeatures } from "@/hooks/useTenant";
 import { Thumb } from "@/components/ImagePicker";
 import { BarcodeInput, BarcodeScannerDialog } from "@/components/BarcodeScanner";
 import { lookupBarcode, logBarcodeAudit, useBarcode } from "@/lib/barcode";
@@ -109,6 +110,10 @@ function Pos() {
   const [invoiceDiscount, setInvoiceDiscount] = useState("0");
   const [method, setMethod] = useState<string>("cash");
   const [paid, setPaid] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const { enabled } = useEnabledFeatures();
+  const creditEnabled = enabled("customer_credit");
+  const isCredit = method === "credit" && creditEnabled;
   const [notes, setNotes] = useState("");
   const barcode = useBarcode();
   const [camera, setCamera] = useState(false);
@@ -216,6 +221,28 @@ function Pos() {
   const create = useMutation({
     mutationFn: async () => {
       if (!lines.length) throw new Error("Add at least one product");
+      const items = lines.map((l) => ({
+        product_id: l.product_id,
+        quantity: l.quantity,
+        rate: l.rate,
+        discount: l.discount,
+        gst_rate: l.gst_rate,
+      }));
+
+      if (isCredit) {
+        if (customerId === "walkin")
+          throw new Error("Choose a customer — credit sales cannot be made to walk-in customers");
+        const { data, error } = await supabase.rpc("create_credit_sale", {
+          p_customer_id: customerId,
+          p_items: items,
+          p_invoice_discount: Number(invoiceDiscount || 0),
+          p_due_date: dueDate || (null as unknown as string),
+          p_notes: notes || "",
+        });
+        if (error) throw new Error(error.message);
+        return data as string;
+      }
+
       const payAmount = paid === "" ? totals.grand : Number(paid);
       const { data, error } = await supabase.rpc("create_sale", {
         p_customer_id: customerId === "walkin" ? (null as unknown as string) : customerId,
@@ -224,13 +251,7 @@ function Pos() {
             ? "Walk-in Customer"
             : ((customers ?? []) as { id: string; name: string }[]).find((c) => c.id === customerId)?.name ??
               "Walk-in Customer",
-        p_items: lines.map((l) => ({
-          product_id: l.product_id,
-          quantity: l.quantity,
-          rate: l.rate,
-          discount: l.discount,
-          gst_rate: l.gst_rate,
-        })),
+        p_items: items,
         p_invoice_discount: Number(invoiceDiscount || 0),
         p_payments: payAmount > 0 ? [{ amount: payAmount, method }] : [],
         p_notes: notes || "",
@@ -248,11 +269,13 @@ function Pos() {
       setLines([]);
       setInvoiceDiscount("0");
       setPaid("");
+      setDueDate("");
       setNotes("");
       void qc.invalidateQueries({ queryKey: ["sales"] });
       void qc.invalidateQueries({ queryKey: ["products"] });
       void qc.invalidateQueries({ queryKey: ["customers"] });
       void qc.invalidateQueries({ queryKey: ["inventory_txns"] });
+      void qc.invalidateQueries({ queryKey: ["credit_transactions"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -472,25 +495,42 @@ function Pos() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {PAYMENT_METHODS.map((m) => (
+              {PAYMENT_METHODS.filter((m) => m.value !== "credit" || creditEnabled).map((m) => (
                 <SelectItem key={m.value} value={m.value}>
-                  {m.label}
+                  {m.value === "credit" ? "Credit / Udhar" : m.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Input
-            type="number"
-            placeholder={`Paid (${totals.grand})`}
-            value={paid}
-            onChange={(e) => setPaid(e.target.value)}
-          />
+          {isCredit ? (
+            <Input
+              type="date"
+              value={dueDate}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          ) : (
+            <Input
+              type="number"
+              placeholder={`Paid (${totals.grand})`}
+              value={paid}
+              onChange={(e) => setPaid(e.target.value)}
+            />
+          )}
         </div>
+        {isCredit && (
+          <p className="mt-2 rounded-md border bg-muted/40 p-2 text-[11px] text-muted-foreground">
+            Credit sale — nothing is collected now. Leave the date empty to use the customer&apos;s
+            default credit terms. The bill appears under Credit / Udhar for collection.
+          </p>
+        )}
         <Input className="mt-2" placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
 
         <Button className="mt-3" disabled={create.isPending || !lines.length} onClick={() => create.mutate()}>
           <Receipt className="mr-1.5 size-4" />
-          {create.isPending ? "Saving…" : `Complete Sale · ${inr(totals.grand)}`}
+          {create.isPending
+            ? "Saving…"
+            : `${isCredit ? "Credit Sale" : "Complete Sale"} · ${inr(totals.grand)}`}
         </Button>
         {settings?.allow_negative_stock === false && (
           <p className="mt-2 text-center text-[11px] text-muted-foreground">Negative stock is blocked in settings</p>
