@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ function CheckoutPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [payMode, setPayMode] = useState<"cod" | "credit">("cod");
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -55,6 +56,23 @@ function CheckoutPage() {
   useEffect(() => {
     if (user?.email) setEmail(user.email);
   }, [user]);
+
+  const { data: myCredit } = useQuery({
+    queryKey: ["my-credit", business?.id, user?.id],
+    enabled: !!business?.id && !!user?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("customers")
+        .select("credit_allowed, credit_limit, credit_terms_days")
+        .eq("business_id", business!.id)
+        .eq("auth_user_id", user!.id)
+        .maybeSingle();
+      return data as
+        | { credit_allowed: boolean; credit_limit: number; credit_terms_days: number }
+        | null;
+    },
+  });
+  const creditAvailable = !!myCredit?.credit_allowed;
 
   async function authenticate(mode: "signin" | "signup") {
     const parsed = credentials.safeParse({ email, password });
@@ -98,7 +116,7 @@ function CheckoutPage() {
     mutationFn: async () => {
       if (!business) throw new Error("Store unavailable");
       if (cart.lines.length === 0) throw new Error("Your cart is empty");
-      const { data, error } = await supabase.rpc("place_order", {
+      const args = {
         p_business_id: business.id,
         p_items: cart.lines.map((l) => ({ product_id: l.product_id, quantity: l.quantity })),
         p_name: form.name || "Customer",
@@ -108,13 +126,21 @@ function CheckoutPage() {
         p_city: form.city,
         p_state: form.state,
         p_pincode: form.pincode,
-      });
+      };
+      const { data, error } =
+        payMode === "credit" && creditAvailable
+          ? await supabase.rpc("place_credit_order", args)
+          : await supabase.rpc("place_order", args);
       if (error) throw error;
       return data as string;
     },
     onSuccess: () => {
       cart.clear();
-      toast.success("Order placed — thank you!");
+      toast.success(
+        payMode === "credit" && creditAvailable
+          ? "Order placed on credit — pay by the due date"
+          : "Order placed — thank you!",
+      );
       void navigate({ to: "/shop/$code/orders", params: { code } });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not place the order"),
@@ -195,7 +221,39 @@ function CheckoutPage() {
                 onChange={(v) => setForm({ ...form, pincode: v })}
               />
             </div>
-            <p className="text-xs text-muted-foreground">Payment: cash on delivery.</p>
+            {creditAvailable ? (
+              <div className="space-y-2 rounded-lg border p-3">
+                <p className="text-sm font-medium">Payment</p>
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="radio"
+                    className="mt-1"
+                    checked={payMode === "cod"}
+                    onChange={() => setPayMode("cod")}
+                  />
+                  <span>Cash on delivery</span>
+                </label>
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="radio"
+                    className="mt-1"
+                    checked={payMode === "credit"}
+                    onChange={() => setPayMode("credit")}
+                  />
+                  <span>
+                    Buy on credit (Udhar)
+                    <span className="block text-xs text-muted-foreground">
+                      Payable within {myCredit?.credit_terms_days ?? 15} days
+                      {Number(myCredit?.credit_limit ?? 0) > 0
+                        ? ` · credit limit ${inr(Number(myCredit?.credit_limit))}`
+                        : ""}
+                    </span>
+                  </span>
+                </label>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Payment: cash on delivery.</p>
+            )}
             <Button className="w-full" disabled={place.isPending} onClick={() => place.mutate()}>
               {place.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
               Place order
