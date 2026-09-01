@@ -199,8 +199,8 @@ export function useRecordCollection() {
         p_amount: input.amount,
         p_collection_date: input.collectionDate,
         p_method: input.method,
-        p_reference: input.reference || null,
-        p_remarks: input.remarks || null,
+        p_reference: input.reference || undefined,
+        p_remarks: input.remarks || undefined,
       });
       if (error) throw new Error(error.message);
     },
@@ -222,8 +222,8 @@ export function useResubmitCollection() {
         p_entry_id: input.entryId,
         p_amount: input.amount,
         p_method: input.method,
-        p_reference: input.reference || null,
-        p_remarks: input.remarks || null,
+        p_reference: input.reference || undefined,
+        p_remarks: input.remarks || undefined,
       });
       if (error) throw new Error(error.message);
     },
@@ -243,8 +243,8 @@ export function useVerifyCollection() {
       const { error } = await supabase.rpc("verify_credit_collection", {
         p_entry_id: input.entryId,
         p_action: input.action,
-        p_comments: input.comments || null,
-        p_reason: input.reason || null,
+        p_comments: input.comments || undefined,
+        p_reason: input.reason || undefined,
       });
       if (error) throw new Error(error.message);
     },

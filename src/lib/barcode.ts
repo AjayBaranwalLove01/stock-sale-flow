@@ -26,6 +26,7 @@ export type BarcodePermission =
   | "print_barcode";
 
 const PERMISSIONS: Record<AppRole, BarcodePermission[]> = {
+  credit_officer: [],
   super_admin: [
     "scan_barcode",
     "manage_product_barcode",
