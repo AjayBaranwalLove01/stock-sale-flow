@@ -17,6 +17,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedAuditRouteImport } from './routes/_authenticated/audit'
 import { Route as AuthenticatedBusinessesRouteImport } from './routes/_authenticated/businesses'
 import { Route as AuthenticatedCategoriesRouteImport } from './routes/_authenticated/categories'
+import { Route as AuthenticatedCollectionsRouteImport } from './routes/_authenticated/collections'
 import { Route as AuthenticatedCreditRouteImport } from './routes/_authenticated/credit'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -82,6 +83,12 @@ const AuthenticatedCategoriesRoute = AuthenticatedCategoriesRouteImport.update({
   path: '/categories',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCollectionsRoute =
+  AuthenticatedCollectionsRouteImport.update({
+    id: '/collections',
+    path: '/collections',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCreditRoute = AuthenticatedCreditRouteImport.update({
   id: '/credit',
   path: '/credit',
@@ -217,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AuthenticatedAuditRoute
   '/businesses': typeof AuthenticatedBusinessesRoute
   '/categories': typeof AuthenticatedCategoriesRoute
+  '/collections': typeof AuthenticatedCollectionsRoute
   '/credit': typeof AuthenticatedCreditRoute
   '/customers': typeof AuthenticatedCustomersRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -250,6 +258,7 @@ export interface FileRoutesByTo {
   '/audit': typeof AuthenticatedAuditRoute
   '/businesses': typeof AuthenticatedBusinessesRoute
   '/categories': typeof AuthenticatedCategoriesRoute
+  '/collections': typeof AuthenticatedCollectionsRoute
   '/credit': typeof AuthenticatedCreditRoute
   '/customers': typeof AuthenticatedCustomersRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -286,6 +295,7 @@ export interface FileRoutesById {
   '/_authenticated/audit': typeof AuthenticatedAuditRoute
   '/_authenticated/businesses': typeof AuthenticatedBusinessesRoute
   '/_authenticated/categories': typeof AuthenticatedCategoriesRoute
+  '/_authenticated/collections': typeof AuthenticatedCollectionsRoute
   '/_authenticated/credit': typeof AuthenticatedCreditRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -322,6 +332,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/businesses'
     | '/categories'
+    | '/collections'
     | '/credit'
     | '/customers'
     | '/dashboard'
@@ -355,6 +366,7 @@ export interface FileRouteTypes {
     | '/audit'
     | '/businesses'
     | '/categories'
+    | '/collections'
     | '/credit'
     | '/customers'
     | '/dashboard'
@@ -390,6 +402,7 @@ export interface FileRouteTypes {
     | '/_authenticated/audit'
     | '/_authenticated/businesses'
     | '/_authenticated/categories'
+    | '/_authenticated/collections'
     | '/_authenticated/credit'
     | '/_authenticated/customers'
     | '/_authenticated/dashboard'
@@ -482,6 +495,13 @@ declare module '@tanstack/react-router' {
       path: '/categories'
       fullPath: '/categories'
       preLoaderRoute: typeof AuthenticatedCategoriesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/collections': {
+      id: '/_authenticated/collections'
+      path: '/collections'
+      fullPath: '/collections'
+      preLoaderRoute: typeof AuthenticatedCollectionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/credit': {
@@ -666,6 +686,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAuditRoute: typeof AuthenticatedAuditRoute
   AuthenticatedBusinessesRoute: typeof AuthenticatedBusinessesRoute
   AuthenticatedCategoriesRoute: typeof AuthenticatedCategoriesRoute
+  AuthenticatedCollectionsRoute: typeof AuthenticatedCollectionsRoute
   AuthenticatedCreditRoute: typeof AuthenticatedCreditRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -690,6 +711,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAuditRoute: AuthenticatedAuditRoute,
   AuthenticatedBusinessesRoute: AuthenticatedBusinessesRoute,
   AuthenticatedCategoriesRoute: AuthenticatedCategoriesRoute,
+  AuthenticatedCollectionsRoute: AuthenticatedCollectionsRoute,
   AuthenticatedCreditRoute: AuthenticatedCreditRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
