@@ -21,6 +21,8 @@ import {
   Megaphone,
   ScanLine,
   Tv,
+  HandCoins,
+  BadgeIndianRupee,
 } from "lucide-react";
 import {
   Sidebar,
@@ -61,6 +63,8 @@ const ITEMS: NavItem[] = [
   { title: "Online Orders", url: "/orders", icon: ShoppingBag, module: "orders", group: "Operations", feature: "online_orders" },
   { title: "Inventory", url: "/inventory", icon: Boxes, module: "inventory", group: "Operations" },
   { title: "Barcode Stock Entry", url: "/stock-entry", icon: ScanLine, module: "stock-entry", group: "Operations", feature: "barcode_management" },
+  { title: "Credit / Udhar", url: "/credit", icon: BadgeIndianRupee, module: "credit", group: "Operations", feature: "customer_credit" },
+  { title: "Collections", url: "/collections", icon: HandCoins, module: "collections", group: "Operations", feature: "customer_credit" },
   { title: "Payments", url: "/payments", icon: Wallet, module: "payments", group: "Operations" },
   { title: "Returns", url: "/returns", icon: Undo2, module: "returns", group: "Operations" },
   { title: "Reports", url: "/reports", icon: BarChart3, module: "reports", group: "Insights", feature: "reports" },

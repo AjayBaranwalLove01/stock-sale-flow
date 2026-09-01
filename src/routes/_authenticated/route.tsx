@@ -47,6 +47,8 @@ const MODULE_PATHS: ModuleKey[] = [
   "orders",
   "promotions",
   "signage",
+  "credit",
+  "collections",
 ];
 
 
