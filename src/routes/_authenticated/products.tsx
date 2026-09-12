@@ -101,6 +101,51 @@ const emptyProduct = {
 
 type ProductForm = typeof emptyProduct;
 
+/** Build a short alphanumeric token from a piece of text, e.g. "Basmati Rice" -> "BASRIC". */
+function token(text: string, size = 3, words = 2) {
+  const parts = (text ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, words);
+  return parts.map((w) => w.slice(0, size)).join("");
+}
+
+/**
+ * Suggest up to three unique SKU codes from the category, brand and product name.
+ * Anything already used by another product gets a numeric suffix until it is free.
+ */
+function suggestSkus(opts: {
+  name: string;
+  brand: string;
+  category: string;
+  taken: Set<string>;
+}): string[] {
+  const name = token(opts.name, 3, 2);
+  const brand = token(opts.brand, 3, 1);
+  const cat = token(opts.category, 3, 1);
+  if (!name && !brand && !cat) return [];
+
+  const bases = [
+    [cat, name].filter(Boolean).join("-"),
+    [brand, name].filter(Boolean).join("-"),
+    [cat, brand, name].filter(Boolean).join("-"),
+  ].filter((b) => b.length > 1);
+
+  const out: string[] = [];
+  for (const base of Array.from(new Set(bases))) {
+    let candidate = `${base}-${String(out.length + 1).padStart(3, "0")}`;
+    let n = out.length + 1;
+    while (opts.taken.has(candidate.toLowerCase()) || out.includes(candidate)) {
+      n += 1;
+      candidate = `${base}-${String(n).padStart(3, "0")}`;
+    }
+    out.push(candidate);
+  }
+  return out.slice(0, 3);
+}
+
 function ProductsPage() {
   const qc = useQueryClient();
   const { data: categories } = useCategories();
