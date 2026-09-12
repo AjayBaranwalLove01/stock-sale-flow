@@ -101,6 +101,51 @@ const emptyProduct = {
 
 type ProductForm = typeof emptyProduct;
 
+/** Build a short alphanumeric token from a piece of text, e.g. "Basmati Rice" -> "BASRIC". */
+function token(text: string, size = 3, words = 2) {
+  const parts = (text ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, words);
+  return parts.map((w) => w.slice(0, size)).join("");
+}
+
+/**
+ * Suggest up to three unique SKU codes from the category, brand and product name.
+ * Anything already used by another product gets a numeric suffix until it is free.
+ */
+function suggestSkus(opts: {
+  name: string;
+  brand: string;
+  category: string;
+  taken: Set<string>;
+}): string[] {
+  const name = token(opts.name, 3, 2);
+  const brand = token(opts.brand, 3, 1);
+  const cat = token(opts.category, 3, 1);
+  if (!name && !brand && !cat) return [];
+
+  const bases = [
+    [cat, name].filter(Boolean).join("-"),
+    [brand, name].filter(Boolean).join("-"),
+    [cat, brand, name].filter(Boolean).join("-"),
+  ].filter((b) => b.length > 1);
+
+  const out: string[] = [];
+  for (const base of Array.from(new Set(bases))) {
+    let candidate = `${base}-${String(out.length + 1).padStart(3, "0")}`;
+    let n = out.length + 1;
+    while (opts.taken.has(candidate.toLowerCase()) || out.includes(candidate)) {
+      n += 1;
+      candidate = `${base}-${String(n).padStart(3, "0")}`;
+    }
+    out.push(candidate);
+  }
+  return out.slice(0, 3);
+}
+
 function ProductsPage() {
   const qc = useQueryClient();
   const { data: categories } = useCategories();
@@ -118,6 +163,31 @@ function ProductsPage() {
   const [scanOpen, setScanOpen] = useState(false);
   const [barcodeNote, setBarcodeNote] = useState<string | null>(null);
   const [labelProduct, setLabelProduct] = useState<LabelProduct | null>(null);
+
+  /** SKUs used by other products, for uniqueness checks and suggestions. */
+  const takenSkus = useMemo(
+    () =>
+      new Set(
+        (products ?? [])
+          .filter((p) => p.id !== form.id)
+          .map((p) => (p.sku ?? "").toLowerCase()),
+      ),
+    [products, form.id],
+  );
+
+  const skuSuggestions = useMemo(
+    () =>
+      suggestSkus({
+        name: form.name,
+        brand: form.brand,
+        category: (categories ?? []).find((c) => c.id === form.category_id)?.name ?? "",
+        taken: takenSkus,
+      }),
+    [form.name, form.brand, form.category_id, categories, takenSkus],
+  );
+
+  const skuTaken = form.sku.trim() !== "" && takenSkus.has(form.sku.trim().toLowerCase());
+
 
   /** Scanned or typed barcode: block duplicates, otherwise continue creating the product. */
   async function applyBarcode(code: string) {
@@ -507,7 +577,46 @@ function ProductsPage() {
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </F>
               <F label="SKU">
-                <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      className="flex-1"
+                      value={form.sku}
+                      onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                      placeholder="e.g. GRO-BASRIC-001"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={skuSuggestions.length === 0}
+                      onClick={() => setForm((f) => ({ ...f, sku: skuSuggestions[0] ?? f.sku }))}
+                    >
+                      <Wand2 className="mr-1.5 size-4" /> Suggest
+                    </Button>
+                  </div>
+                  {skuSuggestions.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">Suggestions:</span>
+                      {skuSuggestions.map((s) => (
+                        <Button
+                          key={s}
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 font-mono text-xs"
+                          onClick={() => setForm((f) => ({ ...f, sku: s }))}
+                        >
+                          {s}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                  {skuTaken && (
+                    <p className="text-xs text-destructive">
+                      This SKU is already used by another product.
+                    </p>
+                  )}
+                </div>
               </F>
               <F label="Barcode" full>
                 {barcode.enabled ? (
