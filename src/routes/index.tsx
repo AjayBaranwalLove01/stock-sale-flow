@@ -1,5 +1,4 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { resolveStorefront } from "@/lib/tenant.functions";
 
 const NON_STORE_HOSTS = ["www", "app", "admin", "localhost", "id-preview", "preview"];
 
@@ -17,24 +16,31 @@ function hostSlug(hostname: string): string | null {
 
 export const Route = createFileRoute("/")({
   ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Online Store — Browse Products" },
+      {
+        name: "description",
+        content: "Browse products, add items to your cart and place an order online.",
+      },
+      { property: "og:title", content: "Online Store — Browse Products" },
+      {
+        property: "og:description",
+        content: "Browse products, add items to your cart and place an order online.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   beforeLoad: async () => {
     // A business subdomain (abc.<base-domain>) lands on that business's storefront;
     // everything else goes to the back-office app.
-    try {
-      const host = window.location.hostname;
-      const slug = hostSlug(host);
-      const business = await resolveStorefront({
-        data: slug ? { host, code: slug } : { host },
-      });
-      if (business?.subdomain) {
-        throw redirect({ to: "/shop/$code", params: { code: business.subdomain } });
-      }
-      if (slug) {
-        // Subdomain we could not resolve: still show shopping, never a login wall.
-        throw redirect({ to: "/shop" });
-      }
-    } catch (e) {
-      if (e && typeof e === "object" && "to" in e) throw e;
+    const slug = hostSlug(window.location.hostname);
+    if (slug) {
+      // Route public storefront hosts without depending on a server lookup. The
+      // storefront itself validates the business and shows an unavailable page
+      // when the slug is unknown, rather than exposing the staff sign-in page.
+      throw redirect({ to: "/shop/$code", params: { code: slug } });
     }
     throw redirect({ to: "/dashboard" });
   },
