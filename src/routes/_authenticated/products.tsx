@@ -164,6 +164,31 @@ function ProductsPage() {
   const [barcodeNote, setBarcodeNote] = useState<string | null>(null);
   const [labelProduct, setLabelProduct] = useState<LabelProduct | null>(null);
 
+  /** SKUs used by other products, for uniqueness checks and suggestions. */
+  const takenSkus = useMemo(
+    () =>
+      new Set(
+        (products ?? [])
+          .filter((p) => p.id !== form.id)
+          .map((p) => (p.sku ?? "").toLowerCase()),
+      ),
+    [products, form.id],
+  );
+
+  const skuSuggestions = useMemo(
+    () =>
+      suggestSkus({
+        name: form.name,
+        brand: form.brand,
+        category: (categories ?? []).find((c) => c.id === form.category_id)?.name ?? "",
+        taken: takenSkus,
+      }),
+    [form.name, form.brand, form.category_id, categories, takenSkus],
+  );
+
+  const skuTaken = form.sku.trim() !== "" && takenSkus.has(form.sku.trim().toLowerCase());
+
+
   /** Scanned or typed barcode: block duplicates, otherwise continue creating the product. */
   async function applyBarcode(code: string) {
     const value = normaliseBarcode(code);
