@@ -552,7 +552,46 @@ function ProductsPage() {
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </F>
               <F label="SKU">
-                <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      className="flex-1"
+                      value={form.sku}
+                      onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                      placeholder="e.g. GRO-BASRIC-001"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={skuSuggestions.length === 0}
+                      onClick={() => setForm((f) => ({ ...f, sku: skuSuggestions[0] ?? f.sku }))}
+                    >
+                      <Wand2 className="mr-1.5 size-4" /> Suggest
+                    </Button>
+                  </div>
+                  {skuSuggestions.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">Suggestions:</span>
+                      {skuSuggestions.map((s) => (
+                        <Button
+                          key={s}
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 font-mono text-xs"
+                          onClick={() => setForm((f) => ({ ...f, sku: s }))}
+                        >
+                          {s}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                  {skuTaken && (
+                    <p className="text-xs text-destructive">
+                      This SKU is already used by another product.
+                    </p>
+                  )}
+                </div>
               </F>
               <F label="Barcode" full>
                 {barcode.enabled ? (
