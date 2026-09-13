@@ -35,7 +35,9 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedSignageRouteImport } from './routes/_authenticated/signage'
 import { Route as AuthenticatedStockEntryRouteImport } from './routes/_authenticated/stock-entry'
 import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authenticated/suppliers'
+import { Route as AuthenticatedTransfersRouteImport } from './routes/_authenticated/transfers'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
+import { Route as AuthenticatedWarehousesRouteImport } from './routes/_authenticated/warehouses'
 import { Route as ShopIndexRouteImport } from './routes/shop/index'
 import { Route as ShopCodeRouteRouteImport } from './routes/shop/$code/route'
 import { Route as ShopCodeIndexRouteImport } from './routes/shop/$code/index'
@@ -174,9 +176,19 @@ const AuthenticatedSuppliersRoute = AuthenticatedSuppliersRouteImport.update({
   path: '/suppliers',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedTransfersRoute = AuthenticatedTransfersRouteImport.update({
+  id: '/transfers',
+  path: '/transfers',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
   id: '/users',
   path: '/users',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedWarehousesRoute = AuthenticatedWarehousesRouteImport.update({
+  id: '/warehouses',
+  path: '/warehouses',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const ShopIndexRoute = ShopIndexRouteImport.update({
@@ -242,7 +254,9 @@ export interface FileRoutesByFullPath {
   '/signage': typeof AuthenticatedSignageRoute
   '/stock-entry': typeof AuthenticatedStockEntryRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
+  '/transfers': typeof AuthenticatedTransfersRoute
   '/users': typeof AuthenticatedUsersRoute
+  '/warehouses': typeof AuthenticatedWarehousesRoute
   '/shop/': typeof ShopIndexRoute
   '/shop/$code/cart': typeof ShopCodeCartRoute
   '/shop/$code/checkout': typeof ShopCodeCheckoutRoute
@@ -276,7 +290,9 @@ export interface FileRoutesByTo {
   '/signage': typeof AuthenticatedSignageRoute
   '/stock-entry': typeof AuthenticatedStockEntryRoute
   '/suppliers': typeof AuthenticatedSuppliersRoute
+  '/transfers': typeof AuthenticatedTransfersRoute
   '/users': typeof AuthenticatedUsersRoute
+  '/warehouses': typeof AuthenticatedWarehousesRoute
   '/shop': typeof ShopIndexRoute
   '/shop/$code/cart': typeof ShopCodeCartRoute
   '/shop/$code/checkout': typeof ShopCodeCheckoutRoute
@@ -313,7 +329,9 @@ export interface FileRoutesById {
   '/_authenticated/signage': typeof AuthenticatedSignageRoute
   '/_authenticated/stock-entry': typeof AuthenticatedStockEntryRoute
   '/_authenticated/suppliers': typeof AuthenticatedSuppliersRoute
+  '/_authenticated/transfers': typeof AuthenticatedTransfersRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
+  '/_authenticated/warehouses': typeof AuthenticatedWarehousesRoute
   '/shop/': typeof ShopIndexRoute
   '/shop/$code/cart': typeof ShopCodeCartRoute
   '/shop/$code/checkout': typeof ShopCodeCheckoutRoute
@@ -350,7 +368,9 @@ export interface FileRouteTypes {
     | '/signage'
     | '/stock-entry'
     | '/suppliers'
+    | '/transfers'
     | '/users'
+    | '/warehouses'
     | '/shop/'
     | '/shop/$code/cart'
     | '/shop/$code/checkout'
@@ -384,7 +404,9 @@ export interface FileRouteTypes {
     | '/signage'
     | '/stock-entry'
     | '/suppliers'
+    | '/transfers'
     | '/users'
+    | '/warehouses'
     | '/shop'
     | '/shop/$code/cart'
     | '/shop/$code/checkout'
@@ -420,7 +442,9 @@ export interface FileRouteTypes {
     | '/_authenticated/signage'
     | '/_authenticated/stock-entry'
     | '/_authenticated/suppliers'
+    | '/_authenticated/transfers'
     | '/_authenticated/users'
+    | '/_authenticated/warehouses'
     | '/shop/'
     | '/shop/$code/cart'
     | '/shop/$code/checkout'
@@ -623,11 +647,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSuppliersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/transfers': {
+      id: '/_authenticated/transfers'
+      path: '/transfers'
+      fullPath: '/transfers'
+      preLoaderRoute: typeof AuthenticatedTransfersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/users': {
       id: '/_authenticated/users'
       path: '/users'
       fullPath: '/users'
       preLoaderRoute: typeof AuthenticatedUsersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/warehouses': {
+      id: '/_authenticated/warehouses'
+      path: '/warehouses'
+      fullPath: '/warehouses'
+      preLoaderRoute: typeof AuthenticatedWarehousesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/shop/': {
@@ -704,7 +742,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSignageRoute: typeof AuthenticatedSignageRoute
   AuthenticatedStockEntryRoute: typeof AuthenticatedStockEntryRoute
   AuthenticatedSuppliersRoute: typeof AuthenticatedSuppliersRoute
+  AuthenticatedTransfersRoute: typeof AuthenticatedTransfersRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
+  AuthenticatedWarehousesRoute: typeof AuthenticatedWarehousesRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -729,7 +769,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSignageRoute: AuthenticatedSignageRoute,
   AuthenticatedStockEntryRoute: AuthenticatedStockEntryRoute,
   AuthenticatedSuppliersRoute: AuthenticatedSuppliersRoute,
+  AuthenticatedTransfersRoute: AuthenticatedTransfersRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
+  AuthenticatedWarehousesRoute: AuthenticatedWarehousesRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
