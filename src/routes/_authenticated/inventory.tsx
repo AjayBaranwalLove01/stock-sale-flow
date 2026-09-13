@@ -28,6 +28,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Search, Boxes, AlertTriangle, IndianRupee, SlidersHorizontal, Download } from "lucide-react";
 import { useProducts, useInventoryTxns } from "@/lib/queries";
+import { LocationSelector } from "@/components/LocationSelector";
+import { useGodown, useMyWarehouses, useWarehouseStock } from "@/lib/warehouse";
 import { inr, num, dateTimeFmt, downloadCsv } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/inventory")({
@@ -62,15 +64,27 @@ function InventoryPage() {
   const products = (data ?? []) as unknown as Product[];
   const [q, setQ] = useState("");
   const [adjust, setAdjust] = useState<Product | null>(null);
+  const { godown } = useGodown();
+  const { warehouses } = useMyWarehouses();
+  const [loc, setLoc] = useState<string | null>(null);
+  const { data: wstock } = useWarehouseStock();
+
+  const locStock = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of wstock ?? []) m.set(`${s.warehouse_id}:${s.product_id}`, Number(s.quantity));
+    return m;
+  }, [wstock]);
+  const stockOf = (p: Product) =>
+    godown && loc ? (locStock.get(`${loc}:${p.id}`) ?? 0) : Number(p.current_stock);
 
   const filtered = useMemo(
     () => products.filter((p) => [p.name, p.sku].some((v) => (v ?? "").toLowerCase().includes(q.toLowerCase()))),
     [products, q],
   );
 
-  const totalValue = products.reduce((a, p) => a + Number(p.current_stock) * Number(p.purchase_price), 0);
-  const low = products.filter((p) => Number(p.current_stock) <= Number(p.min_stock));
-  const out = products.filter((p) => Number(p.current_stock) <= 0);
+  const totalValue = products.reduce((a, p) => a + stockOf(p) * Number(p.purchase_price), 0);
+  const low = products.filter((p) => stockOf(p) <= Number(p.min_stock));
+  const out = products.filter((p) => stockOf(p) <= 0);
 
   return (
     <div>
@@ -96,6 +110,13 @@ function InventoryPage() {
                 <Search className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
                 <Input className="pl-8" placeholder="Search product or SKU…" value={q} onChange={(e) => setQ(e.target.value)} />
               </div>
+              <LocationSelector
+                className="w-56"
+                label=""
+                includeAll
+                value={loc}
+                onChange={setLoc}
+              />
               <Button
                 variant="outline"
                 size="sm"
@@ -105,7 +126,7 @@ function InventoryPage() {
                     filtered.map((p) => ({
                       SKU: p.sku,
                       Product: p.name,
-                      Stock: p.current_stock,
+                      Stock: stockOf(p),
                       Unit: p.unit,
                       Min: p.min_stock,
                       Value: Number(p.current_stock) * Number(p.purchase_price),
@@ -129,14 +150,21 @@ function InventoryPage() {
                       <TableHead>Product</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>Batch / Expiry</TableHead>
-                      <TableHead className="text-right">Stock</TableHead>
+                      {godown && !loc
+                        ? warehouses.map((w) => (
+                            <TableHead key={w.id} className="text-right">
+                              {w.name}
+                            </TableHead>
+                          ))
+                        : null}
+                      <TableHead className="text-right">{godown && !loc ? "Total" : "Stock"}</TableHead>
                       <TableHead className="text-right">Value</TableHead>
                       <TableHead />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filtered.map((p) => {
-                      const stock = Number(p.current_stock);
+                      const stock = stockOf(p);
                       return (
                         <TableRow key={p.id}>
                           <TableCell className="text-sm">{p.sku}</TableCell>
@@ -148,6 +176,13 @@ function InventoryPage() {
                             {p.batch_number || "—"}
                             {p.expiry_date ? ` · ${p.expiry_date}` : ""}
                           </TableCell>
+                          {godown && !loc
+                            ? warehouses.map((w) => (
+                                <TableCell key={w.id} className="tabular text-right text-muted-foreground">
+                                  {num(locStock.get(`${w.id}:${p.id}`) ?? 0)}
+                                </TableCell>
+                              ))
+                            : null}
                           <TableCell className="text-right">
                             <Badge
                               variant={stock <= 0 ? "destructive" : stock <= Number(p.min_stock) ? "outline" : "secondary"}
@@ -183,6 +218,7 @@ function InventoryPage() {
 
 function AdjustDialog({ product, onClose }: { product: Product | null; onClose: () => void }) {
   const qc = useQueryClient();
+  const [warehouseId, setWarehouseId] = useState<string | null>(null);
   const [qty, setQty] = useState("");
   const [reason, setReason] = useState("Stock count correction");
   const [notes, setNotes] = useState("");
@@ -197,6 +233,7 @@ function AdjustDialog({ product, onClose }: { product: Product | null; onClose: 
         p_qty: n,
         p_reason: reason,
         p_notes: notes || "",
+        p_warehouse_id: warehouseId,
       });
       if (error) throw error;
     },
@@ -207,6 +244,7 @@ function AdjustDialog({ product, onClose }: { product: Product | null; onClose: 
       onClose();
       void qc.invalidateQueries({ queryKey: ["products"] });
       void qc.invalidateQueries({ queryKey: ["inventory_txns"] });
+      void qc.invalidateQueries({ queryKey: ["warehouse_stock"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -221,6 +259,7 @@ function AdjustDialog({ product, onClose }: { product: Product | null; onClose: 
           <p className="text-sm text-muted-foreground">
             Current stock: <span className="font-medium text-foreground">{num(product?.current_stock)} {product?.unit}</span>
           </p>
+          <LocationSelector value={warehouseId} onChange={setWarehouseId} />
           <div>
             <Label>Adjustment Qty (use negative to reduce) *</Label>
             <Input type="number" value={qty} onChange={(e) => setQty(e.target.value)} />
