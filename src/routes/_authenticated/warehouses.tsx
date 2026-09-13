@@ -114,7 +114,7 @@ function WarehousesPage() {
       <PageHeader
         title="Godowns & Warehouses"
         description="Stock locations for this business. Locations are never deleted — deactivate them instead."
-        action={
+        actions={
           <Button onClick={() => setEditing({ type: "GODOWN", is_active: true })}>
             <Plus className="mr-1.5 size-4" /> Add Location
           </Button>
@@ -289,9 +289,13 @@ function WarehousesPage() {
                   toast.error("Name and code are required");
                   return;
                 }
+                if (!editing.id && !business?.id) {
+                  toast.error("No active business selected");
+                  return;
+                }
                 save.mutate(
                   {
-                    ...(editing.id ? { id: editing.id } : { business_id: business?.id }),
+                    ...(editing.id ? { id: editing.id } : { business_id: business!.id }),
                     name: editing.name.trim(),
                     code: editing.code.trim(),
                     type: (editing.type ?? "GODOWN") as WarehouseType,

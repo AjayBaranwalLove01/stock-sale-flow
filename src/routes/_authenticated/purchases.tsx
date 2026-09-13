@@ -133,7 +133,7 @@ function PurchasesPage() {
         })),
         p_paid_amount: Number(paid || 0),
         p_notes: notes || "",
-        p_warehouse_id: warehouseId,
+        p_warehouse_id: warehouseId ?? undefined,
       });
       if (error) throw error;
     },

@@ -240,7 +240,7 @@ function Pos() {
           p_invoice_discount: Number(invoiceDiscount || 0),
           p_due_date: dueDate || (null as unknown as string),
           p_notes: notes || "",
-          p_warehouse_id: warehouseId,
+          p_warehouse_id: warehouseId ?? undefined,
         });
         if (error) throw new Error(error.message);
         return data as string;
@@ -258,7 +258,7 @@ function Pos() {
         p_invoice_discount: Number(invoiceDiscount || 0),
         p_payments: payAmount > 0 ? [{ amount: payAmount, method }] : [],
         p_notes: notes || "",
-        p_warehouse_id: warehouseId,
+        p_warehouse_id: warehouseId ?? undefined,
       });
       if (error) throw error;
       return data as string;

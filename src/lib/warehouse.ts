@@ -98,7 +98,7 @@ export function useWarehouseStock(warehouseId?: string) {
 export function useSaveWarehouse() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: Partial<Warehouse> & { business_id?: string }) => {
+    mutationFn: async (input: Partial<Warehouse> & { business_id?: string | undefined }) => {
       if (input.id) {
         const { id, ...rest } = input;
         const { error } = await supabase.from("warehouses").update(rest as never).eq("id", id);
@@ -147,7 +147,7 @@ export function useCreateTransfer() {
         p_from_warehouse_id: input.from,
         p_to_warehouse_id: input.to,
         p_items: input.items as never,
-        p_remarks: input.remarks ?? null,
+        p_remarks: input.remarks ?? undefined,
       });
       if (error) throw error;
       return data as string;
