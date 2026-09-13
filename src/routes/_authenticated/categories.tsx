@@ -110,6 +110,12 @@ function CategoriesPage() {
       };
 
       if (!payload.code || !payload.name) throw new Error("Code and name are required");
+      if (payload.parent_id) {
+        const pd = depthOf.get(payload.parent_id) ?? 0;
+        if (pd >= MAX_LEVELS - 1)
+          throw new Error(`Categories can only be nested ${MAX_LEVELS} levels deep`);
+      }
+
       if (form.id) {
         const { error } = await supabase.from("categories").update(payload).eq("id", form.id);
         if (error) throw error;
@@ -289,12 +295,16 @@ function CategoriesPage() {
                 <TableRow key={c.id}>
                   <TableCell className="font-mono text-xs">{c.code}</TableCell>
                   <TableCell>
-                    <span className={c.depth ? "flex items-center gap-1.5 pl-4" : "flex items-center gap-1.5 font-medium"}>
+                    <span
+                      className="flex items-center gap-1.5"
+                      style={{ paddingLeft: `${c.depth * 18}px` }}
+                    >
                       {c.depth > 0 && <CornerDownRight className="size-3.5 text-muted-foreground" />}
                       <Thumb path={c.image_sm} alt={c.name} className="size-8" />
-                      {c.name}
+                      <span className={c.depth === 0 ? "font-medium" : undefined}>{c.name}</span>
                     </span>
                   </TableCell>
+
 
                   <TableCell className="text-muted-foreground">
                     {c.parent_id ? nameOf.get(c.parent_id) : "—"}
@@ -391,13 +401,13 @@ function CategoriesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None (top level)</SelectItem>
-                  {parents
-                    .filter((p) => p.id !== form.id)
-                    .map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
+                  {parentOptions.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {"— ".repeat(p.depth)}
+                      {p.name}
+                    </SelectItem>
+                  ))}
+
                 </SelectContent>
               </Select>
             </div>
