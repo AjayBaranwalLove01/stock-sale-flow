@@ -211,10 +211,44 @@ function ProductsPage() {
     }
   }
 
-  const parents = (categories ?? []).filter((c) => !c.parent_id);
-  const childrenOf = (id: string) => (categories ?? []).filter((c) => c.parent_id === id);
-  const selectedCat = (categories ?? []).find((c) => c.id === form.category_id);
-  const topParentId = selectedCat?.parent_id ?? selectedCat?.id ?? "";
+  const childrenOf = (id: string | null) =>
+    (categories ?? []).filter((c) => (c.parent_id ?? null) === id);
+  const catById = useMemo(
+    () => new Map((categories ?? []).map((c) => [c.id, c])),
+    [categories],
+  );
+  /** Flattened depth-first tree (depth 0–3) for filters. */
+  const catTree = useMemo(() => {
+    const rows: { id: string; name: string; depth: number }[] = [];
+    const walk = (parent: string | null, depth: number) => {
+      if (depth > 3) return;
+      for (const c of (categories ?? []).filter((x) => (x.parent_id ?? null) === parent)) {
+        rows.push({ id: c.id, name: c.name, depth });
+        walk(c.id, depth + 1);
+      }
+    };
+    walk(null, 0);
+    return rows;
+  }, [categories]);
+  /** Ancestor chain of the selected category, root first. */
+  const selectedChain = useMemo(() => {
+    const chain: string[] = [];
+    let cur = form.category_id ? catById.get(form.category_id) : undefined;
+    while (cur) {
+      chain.unshift(cur.id);
+      cur = cur.parent_id ? catById.get(cur.parent_id) : undefined;
+    }
+    return chain;
+  }, [form.category_id, catById]);
+  const isUnder = (catId: string | undefined, ancestorId: string) => {
+    let cur = catId ? catById.get(catId) : undefined;
+    while (cur) {
+      if (cur.id === ancestorId) return true;
+      cur = cur.parent_id ? catById.get(cur.parent_id) : undefined;
+    }
+    return false;
+  };
+
 
   const save = useMutation({
     mutationFn: async () => {
@@ -304,10 +338,8 @@ function ProductsPage() {
     const s = search.toLowerCase();
     return (products ?? []).filter((p) => {
       const cat = p.categories as { id: string; parent_id: string | null } | null;
-      const inCat =
-        catFilter === "all" ||
-        cat?.id === catFilter ||
-        cat?.parent_id === catFilter;
+      const inCat = catFilter === "all" || isUnder(cat?.id, catFilter);
+
       const match =
         !s ||
         p.name.toLowerCase().includes(s) ||
@@ -374,14 +406,15 @@ function ProductsPage() {
         >
           All
         </Button>
-        {(categories ?? []).map((c) => (
+        {catTree.map((c) => (
           <Button
             key={c.id}
             size="sm"
             variant={catFilter === c.id ? "default" : "outline"}
             onClick={() => setCatFilter(c.id)}
           >
-            {c.name}
+            {c.depth > 0 ? `${"· ".repeat(c.depth)}${c.name}` : c.name}
+
           </Button>
         ))}
       </div>
@@ -533,44 +566,37 @@ function ProductsPage() {
             </TabsList>
 
             <TabsContent value="category" className="space-y-4 pt-4">
-              <div>
-                <Label className="mb-2 block">Select category</Label>
-                <div className="flex flex-wrap gap-2">
-                  {parents.map((p) => (
-                    <Button
-                      key={p.id}
-                      type="button"
-                      size="sm"
-                      variant={topParentId === p.id ? "default" : "outline"}
-                      onClick={() => setForm({ ...form, category_id: p.id })}
-                    >
-                      {p.name}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              {topParentId && childrenOf(topParentId).length > 0 && (
-                <div>
-                  <Label className="mb-2 block">Select subcategory</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {childrenOf(topParentId).map((c) => (
-                      <Button
-                        key={c.id}
-                        type="button"
-                        size="sm"
-                        variant={form.category_id === c.id ? "default" : "outline"}
-                        onClick={() => setForm({ ...form, category_id: c.id })}
-                      >
-                        {c.name}
-                      </Button>
-                    ))}
+              {[0, 1, 2, 3].map((level) => {
+                const parentId = level === 0 ? null : (selectedChain[level - 1] ?? null);
+                if (level > 0 && !parentId) return null;
+                const options = childrenOf(parentId);
+                if (options.length === 0) return null;
+                return (
+                  <div key={level}>
+                    <Label className="mb-2 block">
+                      {level === 0 ? "Select category" : `Select level ${level + 1} subcategory`}
+                    </Label>
+                    <div className="flex flex-wrap gap-2">
+                      {options.map((c) => (
+                        <Button
+                          key={c.id}
+                          type="button"
+                          size="sm"
+                          variant={selectedChain[level] === c.id ? "default" : "outline"}
+                          onClick={() => setForm({ ...form, category_id: c.id })}
+                        >
+                          {c.name}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })}
               <Button type="button" disabled={!form.category_id} onClick={() => setStep("info")}>
                 Continue
               </Button>
             </TabsContent>
+
 
             <TabsContent value="info" className="grid gap-3 pt-4 sm:grid-cols-2">
               <F label="Product name">
