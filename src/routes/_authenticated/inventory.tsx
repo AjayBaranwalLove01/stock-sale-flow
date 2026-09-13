@@ -308,11 +308,15 @@ type Txn = {
   qty_out: number;
   unit_cost: number;
   notes: string | null;
+  warehouse_id: string | null;
   products: { name: string; sku: string; unit: string } | null;
 };
 
 function Ledger() {
   const { data, isLoading } = useInventoryTxns();
+  const { godown } = useGodown();
+  const { warehouses } = useMyWarehouses();
+  const whName = new Map(warehouses.map((w) => [w.id, w.name] as const));
   const rows = (data ?? []) as unknown as Txn[];
   const [q, setQ] = useState("");
   const filtered = rows.filter((r) =>
@@ -340,6 +344,7 @@ function Ledger() {
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead>Product</TableHead>
+                {godown && <TableHead>Location</TableHead>}
                 <TableHead>Type</TableHead>
                 <TableHead>Reference</TableHead>
                 <TableHead className="text-right">In</TableHead>
@@ -352,6 +357,11 @@ function Ledger() {
                 <TableRow key={r.id}>
                   <TableCell className="text-sm">{dateTimeFmt(r.txn_date)}</TableCell>
                   <TableCell className="text-sm font-medium">{r.products?.name ?? "—"}</TableCell>
+                  {godown && (
+                    <TableCell className="text-sm text-muted-foreground">
+                      {(r.warehouse_id && whName.get(r.warehouse_id)) || "—"}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Badge variant="secondary" className="capitalize">
                       {r.txn_type.replace("_", " ")}
