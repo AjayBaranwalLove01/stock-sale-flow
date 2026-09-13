@@ -67,10 +67,44 @@ function StoreHome() {
     void navigate({ to: "/shop/$code/product/$id", params: { code, id: hit.id } });
   }
 
+  // Category tree flattened depth-first with depth, for the indented filter list.
+  const categoryTree = useMemo(() => {
+    const cats = categories ?? [];
+    const out: { id: string; name: string; depth: number }[] = [];
+    const walk = (parentId: string | null, depth: number) => {
+      cats
+        .filter((c) => c.parent_id === parentId)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach((c) => {
+          out.push({ id: c.id, name: c.name, depth });
+          walk(c.id, depth + 1);
+        });
+    };
+    walk(null, 0);
+    return out;
+  }, [categories]);
+
+  // Selected category plus all its subcategories (any depth).
+  const categoryIds = useMemo(() => {
+    if (category === "all") return null;
+    const ids = new Set([category]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const c of categories ?? []) {
+        if (c.parent_id && ids.has(c.parent_id) && !ids.has(c.id)) {
+          ids.add(c.id);
+          grew = true;
+        }
+      }
+    }
+    return ids;
+  }, [category, categories]);
+
   const list = useMemo(() => {
     let rows = (products ?? []).filter(
       (p) =>
-        (category === "all" || p.category_id === category) &&
+        (!categoryIds || categoryIds.has(p.category_id)) &&
         [p.name, p.brand, p.sku].some((v) => (v ?? "").toLowerCase().includes(search.toLowerCase())),
     );
     rows = [...rows].sort((a, b) =>
@@ -81,7 +115,7 @@ function StoreHome() {
           : a.name.localeCompare(b.name),
     );
     return rows;
-  }, [products, category, search, sort]);
+  }, [products, categoryIds, search, sort]);
 
   return (
     <div className="space-y-6">
@@ -127,9 +161,9 @@ function StoreHome() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
-            {(categories ?? []).map((c) => (
+            {categoryTree.map((c) => (
               <SelectItem key={c.id} value={c.id}>
-                {c.name}
+                <span style={{ paddingLeft: c.depth * 14 }}>{c.name}</span>
               </SelectItem>
             ))}
           </SelectContent>
