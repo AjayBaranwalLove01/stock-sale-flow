@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { LocationSelector } from "@/components/LocationSelector";
 import { Plus, Search, Trash2, ShoppingCart, Wallet } from "lucide-react";
 import { usePurchases, useProducts, useSuppliers } from "@/lib/queries";
 import { inr, dateFmt } from "@/lib/format";
@@ -74,6 +75,8 @@ function PurchasesPage() {
   const [dueDate, setDueDate] = useState("");
   const [paid, setPaid] = useState("0");
   const [notes, setNotes] = useState("");
+  const [warehouseId, setWarehouseId] = useState<string | null>(null);
+
   const [lines, setLines] = useState<PLine[]>([]);
   const [pick, setPick] = useState("");
 
@@ -130,6 +133,7 @@ function PurchasesPage() {
         })),
         p_paid_amount: Number(paid || 0),
         p_notes: notes || "",
+        ...(warehouseId ? { p_warehouse_id: warehouseId } : {}),
       });
       if (error) throw error;
     },
@@ -250,7 +254,13 @@ function PurchasesPage() {
               <Label>Due Date</Label>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
+            <LocationSelector
+              label="Receiving Location"
+              value={warehouseId}
+              onChange={setWarehouseId}
+            />
           </div>
+
 
           <div>
             <Label>Add Product</Label>

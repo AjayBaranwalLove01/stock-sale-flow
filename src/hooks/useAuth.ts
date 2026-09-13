@@ -32,6 +32,8 @@ export type ModuleKey =
   | "orders"
   | "promotions"
   | "inventory"
+  | "warehouses"
+  | "transfers"
   | "stock-entry"
   | "payments"
   | "returns"
@@ -56,6 +58,8 @@ const ALL: ModuleKey[] = [
   "orders",
   "promotions",
   "inventory",
+  "warehouses",
+  "transfers",
   "stock-entry",
   "payments",
   "returns",
@@ -83,6 +87,8 @@ export const ROLE_MODULES: Record<AppRole, ModuleKey[]> = {
     "orders",
     "promotions",
     "inventory",
+    "warehouses",
+    "transfers",
     "stock-entry",
     "payments",
     "returns",
@@ -111,6 +117,8 @@ export const ROLE_MODULES: Record<AppRole, ModuleKey[]> = {
     "suppliers",
     "purchases",
     "inventory",
+    "warehouses",
+    "transfers",
     "stock-entry",
   ],
   credit_officer: ["dashboard", "collections"],
