@@ -1,6 +1,4 @@
-import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
-import { BarcodeScannerDialog } from "@/components/BarcodeScanner";
+import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Search, ShoppingCart, Megaphone, ImageOff, ScanLine } from "lucide-react";
+import { Search, ShoppingCart, Megaphone, ImageOff } from "lucide-react";
 import { inr } from "@/lib/format";
 import {
   useCart,
