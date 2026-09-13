@@ -3440,62 +3440,142 @@ export type Database = {
       }
     }
     Functions: {
-      adjust_stock: {
-        Args: {
-          p_notes?: string
-          p_product_id: string
-          p_qty: number
-          p_reason: string
-        }
-        Returns: string
-      }
+      adjust_stock:
+        | {
+            Args: {
+              p_notes?: string
+              p_product_id: string
+              p_qty: number
+              p_reason: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_notes?: string
+              p_product_id: string
+              p_qty: number
+              p_reason: string
+              p_warehouse_id?: string
+            }
+            Returns: string
+          }
       can_access_business: { Args: { _business_id: string }; Returns: boolean }
       can_verify_collections: { Args: never; Returns: boolean }
-      create_credit_sale: {
+      create_credit_sale:
+        | {
+            Args: {
+              p_customer_id: string
+              p_due_date?: string
+              p_invoice_discount: number
+              p_items: Json
+              p_notes?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_customer_id: string
+              p_due_date?: string
+              p_invoice_discount: number
+              p_items: Json
+              p_notes?: string
+              p_warehouse_id?: string
+            }
+            Returns: string
+          }
+      create_purchase:
+        | {
+            Args: {
+              p_due_date: string
+              p_items: Json
+              p_notes?: string
+              p_paid_amount: number
+              p_purchase_date: string
+              p_supplier_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_due_date: string
+              p_items: Json
+              p_notes?: string
+              p_paid_amount: number
+              p_purchase_date: string
+              p_supplier_id: string
+              p_warehouse_id?: string
+            }
+            Returns: string
+          }
+      create_purchase_return:
+        | {
+            Args: { p_items: Json; p_purchase_id: string; p_reason: string }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_items: Json
+              p_purchase_id: string
+              p_reason: string
+              p_warehouse_id?: string
+            }
+            Returns: string
+          }
+      create_sale:
+        | {
+            Args: {
+              p_customer_id: string
+              p_customer_name: string
+              p_invoice_discount: number
+              p_items: Json
+              p_notes?: string
+              p_payments: Json
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_customer_id: string
+              p_customer_name: string
+              p_invoice_discount: number
+              p_items: Json
+              p_notes?: string
+              p_payments: Json
+              p_warehouse_id?: string
+            }
+            Returns: string
+          }
+      create_sales_return:
+        | {
+            Args: { p_items: Json; p_reason: string; p_sale_id: string }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_items: Json
+              p_reason: string
+              p_sale_id: string
+              p_warehouse_id?: string
+            }
+            Returns: string
+          }
+      create_stock_transfer: {
         Args: {
-          p_customer_id: string
-          p_due_date?: string
-          p_invoice_discount: number
+          p_from_warehouse_id: string
           p_items: Json
-          p_notes?: string
+          p_remarks?: string
+          p_to_warehouse_id: string
         }
-        Returns: string
-      }
-      create_purchase: {
-        Args: {
-          p_due_date: string
-          p_items: Json
-          p_notes?: string
-          p_paid_amount: number
-          p_purchase_date: string
-          p_supplier_id: string
-        }
-        Returns: string
-      }
-      create_purchase_return: {
-        Args: { p_items: Json; p_purchase_id: string; p_reason: string }
-        Returns: string
-      }
-      create_sale: {
-        Args: {
-          p_customer_id: string
-          p_customer_name: string
-          p_invoice_discount: number
-          p_items: Json
-          p_notes?: string
-          p_payments: Json
-        }
-        Returns: string
-      }
-      create_sales_return: {
-        Args: { p_items: Json; p_reason: string; p_sale_id: string }
         Returns: string
       }
       current_business_id: { Args: never; Returns: string }
+      default_warehouse_id: { Args: { _business_id: string }; Returns: string }
       generate_internal_barcode: {
         Args: { p_product_id?: string }
         Returns: string
       }
+      godown_enabled: { Args: { _business_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -3576,6 +3656,10 @@ export type Database = {
         Returns: string
       }
       refresh_credit_status: { Args: { p_txn_id: string }; Returns: undefined }
+      resolve_warehouse: {
+        Args: { _business_id: string; _warehouse_id: string }
+        Returns: string
+      }
       resubmit_credit_collection: {
         Args: {
           p_amount: number
@@ -3584,6 +3668,10 @@ export type Database = {
           p_reference?: string
           p_remarks?: string
         }
+        Returns: undefined
+      }
+      set_default_warehouse: {
+        Args: { p_warehouse_id: string }
         Returns: undefined
       }
       set_order_status: {
@@ -3625,6 +3713,10 @@ export type Database = {
           p_reason?: string
         }
         Returns: undefined
+      }
+      warehouse_available: {
+        Args: { _product_id: string; _warehouse_id: string }
+        Returns: number
       }
     }
     Enums: {
