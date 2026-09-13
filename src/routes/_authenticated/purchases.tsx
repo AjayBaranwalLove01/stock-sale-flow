@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { LocationSelector } from "@/components/LocationSelector";
 import { Plus, Search, Trash2, ShoppingCart, Wallet } from "lucide-react";
 import { usePurchases, useProducts, useSuppliers } from "@/lib/queries";
 import { inr, dateFmt } from "@/lib/format";
@@ -130,6 +131,7 @@ function PurchasesPage() {
         })),
         p_paid_amount: Number(paid || 0),
         p_notes: notes || "",
+        p_warehouse_id: warehouseId,
       });
       if (error) throw error;
     },

@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { LocationSelector } from "@/components/LocationSelector";
 import { Search, Trash2, Plus, Minus, Receipt, ScanLine, Camera } from "lucide-react";
 import { useCategories, useCustomers, useProducts, useSales, useSettings } from "@/lib/queries";
 import { inr, dateTimeFmt, PAYMENT_METHODS } from "@/lib/format";
@@ -115,6 +116,7 @@ function Pos() {
   const creditEnabled = enabled("customer_credit");
   const isCredit = method === "credit" && creditEnabled;
   const [notes, setNotes] = useState("");
+  const [warehouseId, setWarehouseId] = useState<string | null>(null);
   const barcode = useBarcode();
   const [camera, setCamera] = useState(false);
   const [scanMsg, setScanMsg] = useState<string | null>(null);
@@ -238,6 +240,7 @@ function Pos() {
           p_invoice_discount: Number(invoiceDiscount || 0),
           p_due_date: dueDate || (null as unknown as string),
           p_notes: notes || "",
+          p_warehouse_id: warehouseId,
         });
         if (error) throw new Error(error.message);
         return data as string;
@@ -255,6 +258,7 @@ function Pos() {
         p_invoice_discount: Number(invoiceDiscount || 0),
         p_payments: payAmount > 0 ? [{ amount: payAmount, method }] : [],
         p_notes: notes || "",
+        p_warehouse_id: warehouseId,
       });
       if (error) throw error;
       return data as string;
@@ -390,6 +394,13 @@ function Pos() {
             </SelectContent>
           </Select>
         </div>
+
+        <LocationSelector
+          className="mt-3 space-y-2"
+          label="Selling Location"
+          value={warehouseId}
+          onChange={setWarehouseId}
+        />
 
         <Separator className="my-3" />
 
