@@ -47,23 +47,6 @@ function StoreHome() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("name");
-  const [scanOpen, setScanOpen] = useState(false);
-  const navigate = useNavigate();
-
-  /** Shopper barcode lookup — only returns products visible in this public catalogue. */
-  async function scanLookup(value: string) {
-    if (!business?.id) return;
-    const { data, error } = await supabase.rpc("storefront_product_by_barcode", {
-      p_business_id: business.id,
-      p_barcode: value,
-    });
-    const hit = (data as { id: string; name: string }[] | null)?.[0];
-    if (error || !hit) {
-      toast.error("No product found for that barcode in this store");
-      return;
-    }
-    void navigate({ to: "/shop/$code/product/$id", params: { code, id: hit.id } });
-  }
 
   // Category tree flattened depth-first with depth, for the indented filter list.
   const categoryTree = useMemo(() => {
