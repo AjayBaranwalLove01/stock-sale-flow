@@ -370,7 +370,7 @@ function CategoriesPage() {
           <DialogHeader>
             <DialogTitle>{form.id ? "Edit category" : "Add category"}</DialogTitle>
             <DialogDescription>
-              Child categories let you group products, e.g. Electronics → Mobile.
+              Subcategories can be nested up to 4 levels, e.g. Electronics → Mobile → Android → Budget.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
