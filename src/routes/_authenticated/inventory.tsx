@@ -233,7 +233,7 @@ function AdjustDialog({ product, onClose }: { product: Product | null; onClose: 
         p_qty: n,
         p_reason: reason,
         p_notes: notes || "",
-        p_warehouse_id: warehouseId ?? undefined,
+        ...(warehouseId ? { p_warehouse_id: warehouseId } : {}),
       });
       if (error) throw error;
     },

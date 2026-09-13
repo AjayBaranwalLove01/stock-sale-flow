@@ -147,7 +147,7 @@ export function useCreateTransfer() {
         p_from_warehouse_id: input.from,
         p_to_warehouse_id: input.to,
         p_items: input.items as never,
-        p_remarks: input.remarks ?? undefined,
+        ...(input.remarks ? { p_remarks: input.remarks } : {}),
       });
       if (error) throw error;
       return data as string;
