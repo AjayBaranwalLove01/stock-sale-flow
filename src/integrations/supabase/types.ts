@@ -3440,126 +3440,71 @@ export type Database = {
       }
     }
     Functions: {
-      adjust_stock:
-        | {
-            Args: {
-              p_notes?: string
-              p_product_id: string
-              p_qty: number
-              p_reason: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_notes?: string
-              p_product_id: string
-              p_qty: number
-              p_reason: string
-              p_warehouse_id?: string
-            }
-            Returns: string
-          }
+      adjust_stock: {
+        Args: {
+          p_notes?: string
+          p_product_id: string
+          p_qty: number
+          p_reason: string
+          p_warehouse_id?: string
+        }
+        Returns: string
+      }
       can_access_business: { Args: { _business_id: string }; Returns: boolean }
       can_verify_collections: { Args: never; Returns: boolean }
-      create_credit_sale:
-        | {
-            Args: {
-              p_customer_id: string
-              p_due_date?: string
-              p_invoice_discount: number
-              p_items: Json
-              p_notes?: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_customer_id: string
-              p_due_date?: string
-              p_invoice_discount: number
-              p_items: Json
-              p_notes?: string
-              p_warehouse_id?: string
-            }
-            Returns: string
-          }
-      create_purchase:
-        | {
-            Args: {
-              p_due_date: string
-              p_items: Json
-              p_notes?: string
-              p_paid_amount: number
-              p_purchase_date: string
-              p_supplier_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_due_date: string
-              p_items: Json
-              p_notes?: string
-              p_paid_amount: number
-              p_purchase_date: string
-              p_supplier_id: string
-              p_warehouse_id?: string
-            }
-            Returns: string
-          }
-      create_purchase_return:
-        | {
-            Args: { p_items: Json; p_purchase_id: string; p_reason: string }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_items: Json
-              p_purchase_id: string
-              p_reason: string
-              p_warehouse_id?: string
-            }
-            Returns: string
-          }
-      create_sale:
-        | {
-            Args: {
-              p_customer_id: string
-              p_customer_name: string
-              p_invoice_discount: number
-              p_items: Json
-              p_notes?: string
-              p_payments: Json
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_customer_id: string
-              p_customer_name: string
-              p_invoice_discount: number
-              p_items: Json
-              p_notes?: string
-              p_payments: Json
-              p_warehouse_id?: string
-            }
-            Returns: string
-          }
-      create_sales_return:
-        | {
-            Args: { p_items: Json; p_reason: string; p_sale_id: string }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_items: Json
-              p_reason: string
-              p_sale_id: string
-              p_warehouse_id?: string
-            }
-            Returns: string
-          }
+      create_credit_sale: {
+        Args: {
+          p_customer_id: string
+          p_due_date?: string
+          p_invoice_discount: number
+          p_items: Json
+          p_notes?: string
+          p_warehouse_id?: string
+        }
+        Returns: string
+      }
+      create_purchase: {
+        Args: {
+          p_due_date: string
+          p_items: Json
+          p_notes?: string
+          p_paid_amount: number
+          p_purchase_date: string
+          p_supplier_id: string
+          p_warehouse_id?: string
+        }
+        Returns: string
+      }
+      create_purchase_return: {
+        Args: {
+          p_items: Json
+          p_purchase_id: string
+          p_reason: string
+          p_warehouse_id?: string
+        }
+        Returns: string
+      }
+      create_sale: {
+        Args: {
+          p_customer_id: string
+          p_customer_name: string
+          p_invoice_discount: number
+          p_items: Json
+          p_notes?: string
+          p_payments: Json
+          p_warehouse_id?: string
+        }
+        Returns: string
+      }
+      create_sales_return: {
+        Args: {
+          p_items: Json
+          p_reason: string
+          p_sale_id: string
+          p_warehouse_id?: string
+        }
+        Returns: string
+      }
       create_stock_transfer: {
         Args: {
           p_from_warehouse_id: string
