@@ -211,8 +211,6 @@ function ProductsPage() {
     }
   }
 
-  const childrenOf = (id: string | null) =>
-    (categories ?? []).filter((c) => (c.parent_id ?? null) === id);
   const catById = useMemo(
     () => new Map((categories ?? []).map((c) => [c.id, c])),
     [categories],
@@ -566,32 +564,27 @@ function ProductsPage() {
             </TabsList>
 
             <TabsContent value="category" className="space-y-4 pt-4">
-              {[0, 1, 2, 3].map((level) => {
-                const parentId = level === 0 ? null : (selectedChain[level - 1] ?? null);
-                if (level > 0 && !parentId) return null;
-                const options = childrenOf(parentId);
-                if (options.length === 0) return null;
-                return (
-                  <div key={level}>
-                    <Label className="mb-2 block">
-                      {level === 0 ? "Select category" : `Select level ${level + 1} subcategory`}
-                    </Label>
-                    <div className="flex flex-wrap gap-2">
-                      {options.map((c) => (
-                        <Button
-                          key={c.id}
-                          type="button"
-                          size="sm"
-                          variant={selectedChain[level] === c.id ? "default" : "outline"}
-                          onClick={() => setForm({ ...form, category_id: c.id })}
-                        >
-                          {c.name}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+              <div>
+                <Label className="mb-2 block">Select category or subcategory</Label>
+                <div className="flex flex-wrap gap-2">
+                  {catTree.map((c) => (
+                    <Button
+                      key={c.id}
+                      type="button"
+                      size="sm"
+                      variant={form.category_id === c.id ? "default" : "outline"}
+                      onClick={() => setForm({ ...form, category_id: c.id })}
+                    >
+                      {c.depth > 0 ? `${"— ".repeat(c.depth)}${c.name}` : c.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              {selectedChain.length > 1 && (
+                <p className="text-sm text-muted-foreground">
+                  Selected: {selectedChain.map((id) => catById.get(id)?.name).filter(Boolean).join(" → ")}
+                </p>
+              )}
               <Button type="button" disabled={!form.category_id} onClick={() => setStep("info")}>
                 Continue
               </Button>
