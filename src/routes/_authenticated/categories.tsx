@@ -69,6 +69,10 @@ const empty = {
   status: "active" as "active" | "inactive",
 };
 
+/** Categories can nest up to 4 levels deep. */
+const MAX_LEVELS = 4;
+
+
 
 function CategoriesPage() {
   const qc = useQueryClient();
@@ -157,26 +161,69 @@ function CategoriesPage() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["categories"] }),
   });
 
-  const parents = (categories ?? []).filter((c) => !c.parent_id);
   const nameOf = useMemo(
     () => new Map((categories ?? []).map((c) => [c.id, c.name])),
     [categories],
   );
 
-  const ordered = useMemo(() => {
+  /** Full tree flattened depth-first, max 4 nesting levels (depth 0–3). */
+  const tree = useMemo(() => {
     const list = categories ?? [];
-    const rows: (Category & { depth: number })[] = [];
-    for (const p of list.filter((c) => !c.parent_id)) {
-      rows.push({ ...p, depth: 0 });
-      for (const c of list.filter((x) => x.parent_id === p.id)) rows.push({ ...c, depth: 1 });
+    const byParent = new Map<string | null, Category[]>();
+    for (const c of list) {
+      const k = c.parent_id ?? null;
+      byParent.set(k, [...(byParent.get(k) ?? []), c]);
     }
-    return rows.filter((c) => {
-      const s = search.toLowerCase();
-      const match = !s || c.name.toLowerCase().includes(s) || c.code.toLowerCase().includes(s);
-      const st = filter === "all" || c.status === filter;
-      return match && st;
-    });
-  }, [categories, search, filter]);
+    const rows: (Category & { depth: number })[] = [];
+    const walk = (parent: string | null, depth: number) => {
+      if (depth >= MAX_LEVELS) return;
+      for (const c of byParent.get(parent) ?? []) {
+        rows.push({ ...c, depth });
+        walk(c.id, depth + 1);
+      }
+    };
+    walk(null, 0);
+    return rows;
+  }, [categories]);
+
+  const depthOf = useMemo(
+    () => new Map(tree.map((c) => [c.id, c.depth])),
+    [tree],
+  );
+
+  /** Descendants of the category being edited cannot become its parent. */
+  const blockedIds = useMemo(() => {
+    const blocked = new Set<string>();
+    if (!form.id) return blocked;
+    blocked.add(form.id);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const c of categories ?? []) {
+        if (c.parent_id && blocked.has(c.parent_id) && !blocked.has(c.id)) {
+          blocked.add(c.id);
+          grew = true;
+        }
+      }
+    }
+    return blocked;
+  }, [categories, form.id]);
+
+  const parentOptions = tree.filter(
+    (c) => !blockedIds.has(c.id) && c.depth < MAX_LEVELS - 1,
+  );
+
+  const ordered = useMemo(
+    () =>
+      tree.filter((c) => {
+        const s = search.toLowerCase();
+        const match = !s || c.name.toLowerCase().includes(s) || c.code.toLowerCase().includes(s);
+        const st = filter === "all" || c.status === filter;
+        return match && st;
+      }),
+    [tree, search, filter],
+  );
+
 
   return (
     <div>
