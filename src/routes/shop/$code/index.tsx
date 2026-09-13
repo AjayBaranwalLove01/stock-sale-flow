@@ -211,12 +211,6 @@ function StoreHome() {
         </div>
       )}
 
-      <BarcodeScannerDialog
-        open={scanOpen}
-        onOpenChange={setScanOpen}
-        onDetected={(c) => void scanLookup(c)}
-        title="Scan a product barcode"
-      />
     </div>
   );
 }
