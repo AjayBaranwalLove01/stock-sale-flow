@@ -75,6 +75,8 @@ function PurchasesPage() {
   const [dueDate, setDueDate] = useState("");
   const [paid, setPaid] = useState("0");
   const [notes, setNotes] = useState("");
+  const [warehouseId, setWarehouseId] = useState<string | null>(null);
+
   const [lines, setLines] = useState<PLine[]>([]);
   const [pick, setPick] = useState("");
 
@@ -252,7 +254,13 @@ function PurchasesPage() {
               <Label>Due Date</Label>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
+            <LocationSelector
+              label="Receiving Location"
+              value={warehouseId}
+              onChange={setWarehouseId}
+            />
           </div>
+
 
           <div>
             <Label>Add Product</Label>
