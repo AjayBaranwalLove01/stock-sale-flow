@@ -133,9 +133,6 @@ function StoreHome() {
             className="h-10 border-0 shadow-none focus-visible:ring-0"
           />
         </div>
-        <Button variant="outline" className="h-10" onClick={() => setScanOpen(true)}>
-          <ScanLine className="mr-1.5 size-4" /> Scan
-        </Button>
         <Select value={category} onValueChange={setCategory}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Category" />
