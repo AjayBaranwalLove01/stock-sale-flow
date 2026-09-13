@@ -211,8 +211,6 @@ function ProductsPage() {
     }
   }
 
-  const childrenOf = (id: string | null) =>
-    (categories ?? []).filter((c) => (c.parent_id ?? null) === id);
   const catById = useMemo(
     () => new Map((categories ?? []).map((c) => [c.id, c])),
     [categories],
