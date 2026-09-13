@@ -69,6 +69,10 @@ const empty = {
   status: "active" as "active" | "inactive",
 };
 
+/** Categories can nest up to 4 levels deep. */
+const MAX_LEVELS = 4;
+
+
 
 function CategoriesPage() {
   const qc = useQueryClient();
@@ -106,6 +110,12 @@ function CategoriesPage() {
       };
 
       if (!payload.code || !payload.name) throw new Error("Code and name are required");
+      if (payload.parent_id) {
+        const pd = depthOf.get(payload.parent_id) ?? 0;
+        if (pd >= MAX_LEVELS - 1)
+          throw new Error(`Categories can only be nested ${MAX_LEVELS} levels deep`);
+      }
+
       if (form.id) {
         const { error } = await supabase.from("categories").update(payload).eq("id", form.id);
         if (error) throw error;
@@ -157,26 +167,69 @@ function CategoriesPage() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["categories"] }),
   });
 
-  const parents = (categories ?? []).filter((c) => !c.parent_id);
   const nameOf = useMemo(
     () => new Map((categories ?? []).map((c) => [c.id, c.name])),
     [categories],
   );
 
-  const ordered = useMemo(() => {
+  /** Full tree flattened depth-first, max 4 nesting levels (depth 0–3). */
+  const tree = useMemo(() => {
     const list = categories ?? [];
-    const rows: (Category & { depth: number })[] = [];
-    for (const p of list.filter((c) => !c.parent_id)) {
-      rows.push({ ...p, depth: 0 });
-      for (const c of list.filter((x) => x.parent_id === p.id)) rows.push({ ...c, depth: 1 });
+    const byParent = new Map<string | null, Category[]>();
+    for (const c of list) {
+      const k = c.parent_id ?? null;
+      byParent.set(k, [...(byParent.get(k) ?? []), c]);
     }
-    return rows.filter((c) => {
-      const s = search.toLowerCase();
-      const match = !s || c.name.toLowerCase().includes(s) || c.code.toLowerCase().includes(s);
-      const st = filter === "all" || c.status === filter;
-      return match && st;
-    });
-  }, [categories, search, filter]);
+    const rows: (Category & { depth: number })[] = [];
+    const walk = (parent: string | null, depth: number) => {
+      if (depth >= MAX_LEVELS) return;
+      for (const c of byParent.get(parent) ?? []) {
+        rows.push({ ...c, depth });
+        walk(c.id, depth + 1);
+      }
+    };
+    walk(null, 0);
+    return rows;
+  }, [categories]);
+
+  const depthOf = useMemo(
+    () => new Map(tree.map((c) => [c.id, c.depth])),
+    [tree],
+  );
+
+  /** Descendants of the category being edited cannot become its parent. */
+  const blockedIds = useMemo(() => {
+    const blocked = new Set<string>();
+    if (!form.id) return blocked;
+    blocked.add(form.id);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const c of categories ?? []) {
+        if (c.parent_id && blocked.has(c.parent_id) && !blocked.has(c.id)) {
+          blocked.add(c.id);
+          grew = true;
+        }
+      }
+    }
+    return blocked;
+  }, [categories, form.id]);
+
+  const parentOptions = tree.filter(
+    (c) => !blockedIds.has(c.id) && c.depth < MAX_LEVELS - 1,
+  );
+
+  const ordered = useMemo(
+    () =>
+      tree.filter((c) => {
+        const s = search.toLowerCase();
+        const match = !s || c.name.toLowerCase().includes(s) || c.code.toLowerCase().includes(s);
+        const st = filter === "all" || c.status === filter;
+        return match && st;
+      }),
+    [tree, search, filter],
+  );
+
 
   return (
     <div>
@@ -242,12 +295,16 @@ function CategoriesPage() {
                 <TableRow key={c.id}>
                   <TableCell className="font-mono text-xs">{c.code}</TableCell>
                   <TableCell>
-                    <span className={c.depth ? "flex items-center gap-1.5 pl-4" : "flex items-center gap-1.5 font-medium"}>
+                    <span
+                      className="flex items-center gap-1.5"
+                      style={{ paddingLeft: `${c.depth * 18}px` }}
+                    >
                       {c.depth > 0 && <CornerDownRight className="size-3.5 text-muted-foreground" />}
                       <Thumb path={c.image_sm} alt={c.name} className="size-8" />
-                      {c.name}
+                      <span className={c.depth === 0 ? "font-medium" : undefined}>{c.name}</span>
                     </span>
                   </TableCell>
+
 
                   <TableCell className="text-muted-foreground">
                     {c.parent_id ? nameOf.get(c.parent_id) : "—"}
@@ -313,7 +370,7 @@ function CategoriesPage() {
           <DialogHeader>
             <DialogTitle>{form.id ? "Edit category" : "Add category"}</DialogTitle>
             <DialogDescription>
-              Child categories let you group products, e.g. Electronics → Mobile.
+              Subcategories can be nested up to 4 levels, e.g. Electronics → Mobile → Android → Budget.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -344,13 +401,13 @@ function CategoriesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None (top level)</SelectItem>
-                  {parents
-                    .filter((p) => p.id !== form.id)
-                    .map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
+                  {parentOptions.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {"— ".repeat(p.depth)}
+                      {p.name}
+                    </SelectItem>
+                  ))}
+
                 </SelectContent>
               </Select>
             </div>
