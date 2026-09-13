@@ -115,7 +115,7 @@ function StoreHome() {
           : a.name.localeCompare(b.name),
     );
     return rows;
-  }, [products, category, search, sort]);
+  }, [products, categoryIds, search, sort]);
 
   return (
     <div className="space-y-6">
@@ -161,9 +161,9 @@ function StoreHome() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
-            {(categories ?? []).map((c) => (
+            {categoryTree.map((c) => (
               <SelectItem key={c.id} value={c.id}>
-                {c.name}
+                <span style={{ paddingLeft: c.depth * 14 }}>{c.name}</span>
               </SelectItem>
             ))}
           </SelectContent>
