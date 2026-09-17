@@ -18,9 +18,11 @@ import {
   useCart,
   useStoreBusiness,
   useStoreCategories,
+  useStoreProductCategories,
   useStoreProducts,
   useStorePromotions,
 } from "@/lib/storefront";
+
 
 export const Route = createFileRoute("/shop/$code/")({
   head: () => ({
