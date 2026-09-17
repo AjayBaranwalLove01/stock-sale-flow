@@ -498,6 +498,69 @@ function CategoriesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!viewCat} onOpenChange={(o) => !o && setViewCat(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Products in {viewCat?.name}</DialogTitle>
+            <DialogDescription>
+              Products mapped to this category. Use Category Mapping to add more.
+            </DialogDescription>
+          </DialogHeader>
+          {mappedProducts.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No products mapped to this category yet.
+            </p>
+          ) : (
+            <div className="max-h-[420px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-[60px]" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mappedProducts.map((p) => {
+                    const link = (links ?? []).find(
+                      (l) => l.product_id === p.id && l.category_id === viewCat?.id,
+                    );
+                    return (
+                      <TableRow key={p.id}>
+                        <TableCell>{p.name}</TableCell>
+                        <TableCell className="font-mono text-xs">{p.sku}</TableCell>
+                        <TableCell>
+                          <Badge variant={p.status === "active" ? "secondary" : "outline"}>
+                            {p.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={!link || p.category_id === viewCat?.id}
+                            title={
+                              p.category_id === viewCat?.id
+                                ? "Primary category — change it on the product"
+                                : "Remove from this category"
+                            }
+                            onClick={() => link && unmap.mutate(link)}
+                          >
+                            <Trash2 className="size-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
