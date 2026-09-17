@@ -39,7 +39,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Search, CornerDownRight } from "lucide-react";
-import { useCategories, logAudit, type Category } from "@/lib/queries";
+import {
+  useCategories,
+  logAudit,
+  type Category,
+  useProductCategoryLinks,
+  useUnmapProduct,
+  useProducts,
+} from "@/lib/queries";
+
 import { MultiImagePicker, Thumb } from "@/components/ImagePicker";
 import { fetchGallery, saveGallery, type GalleryImage } from "@/lib/images";
 import { dateFmt } from "@/lib/format";
