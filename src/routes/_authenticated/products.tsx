@@ -30,7 +30,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Plus, Search, Pencil, Upload, Download, ScanLine, Camera, Wand2, Printer } from "lucide-react";
-import { useCategories, useProducts, useSuppliers, logAudit } from "@/lib/queries";
+import {
+  useCategories,
+  useProducts,
+  useSuppliers,
+  logAudit,
+  useProductCategoryLinks,
+  syncProductCategories,
+} from "@/lib/queries";
+import { Checkbox } from "@/components/ui/checkbox";
+
 import { inr, num, UNITS, GST_RATES, downloadCsv } from "@/lib/format";
 import { ProductImportDialog } from "@/components/ProductImportDialog";
 import { MultiImagePicker, Thumb } from "@/components/ImagePicker";
