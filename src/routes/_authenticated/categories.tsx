@@ -87,13 +87,14 @@ function CategoriesPage() {
   const { data: counts } = useQuery({
     queryKey: ["category-product-counts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("category_id");
+      const { data, error } = await supabase.from("product_categories").select("category_id");
       if (error) throw error;
       const map: Record<string, number> = {};
       for (const p of data) map[p.category_id] = (map[p.category_id] ?? 0) + 1;
       return map;
     },
   });
+
 
   const save = useMutation({
     mutationFn: async () => {

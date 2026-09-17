@@ -24,6 +24,8 @@ import {
   HandCoins,
   BadgeIndianRupee,
   ArrowLeftRight,
+  Shuffle,
+
 } from "lucide-react";
 import {
   Sidebar,
@@ -55,6 +57,8 @@ const ITEMS: NavItem[] = [
   { title: "Features", url: "/features", icon: ToggleRight, module: "features", group: "Platform" },
   { title: "Categories", url: "/categories", icon: FolderTree, module: "categories", group: "Catalogue" },
   { title: "Products", url: "/products", icon: Package, module: "products", group: "Catalogue" },
+  { title: "Category Mapping", url: "/category-mapping", icon: Shuffle, module: "categories", group: "Catalogue" },
+
   { title: "Promotions", url: "/promotions", icon: Megaphone, module: "promotions", group: "Catalogue", feature: "promotions" },
   { title: "Digital Signage", url: "/signage", icon: Tv, module: "signage", group: "Catalogue", feature: "digital_signage" },
   { title: "Customers", url: "/customers", icon: Users, module: "customers", group: "Contacts" },
