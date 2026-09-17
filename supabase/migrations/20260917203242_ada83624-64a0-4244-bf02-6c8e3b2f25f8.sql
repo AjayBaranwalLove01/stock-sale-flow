@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.sync_primary_product_category() FROM PUBLIC, anon, authenticated;
