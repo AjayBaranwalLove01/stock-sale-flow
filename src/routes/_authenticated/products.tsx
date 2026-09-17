@@ -507,8 +507,21 @@ function ProductsPage() {
 
                       <TableCell className="font-mono text-xs">{p.sku}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {(p.categories as { name: string } | null)?.name}
+                        <div className="flex flex-wrap gap-1">
+                          {(catsByProduct.get(p.id)?.length
+                            ? catsByProduct.get(p.id)!
+                            : [p.category_id]
+                          ).map((cid) => (
+                            <Badge
+                              key={cid}
+                              variant={cid === p.category_id ? "secondary" : "outline"}
+                            >
+                              {catById.get(cid)?.name ?? "—"}
+                            </Badge>
+                          ))}
+                        </div>
                       </TableCell>
+
                       <TableCell className="tabular text-right">{inr(p.purchase_price)}</TableCell>
                       <TableCell className="tabular text-right">{inr(p.selling_price)}</TableCell>
                       <TableCell className="tabular text-right">{p.gst_rate}%</TableCell>
