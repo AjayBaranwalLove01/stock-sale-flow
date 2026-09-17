@@ -304,11 +304,19 @@ function ProductsPage() {
         status: form.status,
       };
 
+      const allCats = [...new Set([form.category_id, ...extraCats])];
+
       if (form.id) {
         const { error } = await supabase.from("products").update(payload).eq("id", form.id);
         if (error) throw error;
         await saveGallery("product", form.id, gallery);
-        await logAudit("Products", "Product Updated", form.id, null, payload);
+        const bid =
+          (products ?? []).find((p) => p.id === form.id)?.business_id ?? activeBusiness?.id;
+        if (bid) await syncProductCategories(form.id, bid, allCats);
+        await logAudit("Products", "Product Updated", form.id, null, {
+          ...payload,
+          categories: allCats,
+        });
         if (payload.barcode) await logBarcodeAudit("Barcode Saved", form.id, payload.barcode);
       } else {
         const opening = Number(form.opening_stock);
@@ -330,7 +338,11 @@ function ProductsPage() {
           if (te) throw te;
         }
         await saveGallery("product", data.id, gallery);
-        await logAudit("Products", "Product Created", data.id, null, payload);
+        await syncProductCategories(data.id, data.business_id, allCats);
+        await logAudit("Products", "Product Created", data.id, null, {
+          ...payload,
+          categories: allCats,
+        });
         if (payload.barcode)
           await logBarcodeAudit("Product Created Using Barcode", data.id, payload.barcode);
       }
@@ -340,8 +352,10 @@ function ProductsPage() {
       setOpen(false);
       void qc.invalidateQueries({ queryKey: ["products"] });
       void qc.invalidateQueries({ queryKey: ["category-product-counts"] });
+      void qc.invalidateQueries({ queryKey: ["product-categories"] });
       void qc.invalidateQueries({ queryKey: ["catalog-images"] });
     },
+
     onError: (e: Error) => toast.error(e.message),
   });
 
