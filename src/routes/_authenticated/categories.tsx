@@ -91,6 +91,20 @@ function CategoriesPage() {
   const [form, setForm] = useState(empty);
   const [toDelete, setToDelete] = useState<Category | null>(null);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const [viewCat, setViewCat] = useState<Category | null>(null);
+  const { data: links } = useProductCategoryLinks();
+  const { data: allProducts } = useProducts();
+  const unmap = useUnmapProduct();
+
+  /** Products mapped to the category currently being inspected. */
+  const mappedProducts = useMemo(() => {
+    if (!viewCat) return [];
+    const ids = new Set(
+      (links ?? []).filter((l) => l.category_id === viewCat.id).map((l) => l.product_id),
+    );
+    return (allProducts ?? []).filter((p) => ids.has(p.id));
+  }, [viewCat, links, allProducts]);
+
 
   const { data: counts } = useQuery({
     queryKey: ["category-product-counts"],
