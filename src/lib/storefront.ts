@@ -104,6 +104,23 @@ export function useStoreCategories(businessId: string | undefined) {
   });
 }
 
+/** Extra product↔category mappings, so a product can show under many categories. */
+export function useStoreProductCategories(businessId: string | undefined) {
+  return useQuery({
+    queryKey: ["store-product-categories", businessId],
+    enabled: !!businessId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_categories")
+        .select("product_id,category_id")
+        .eq("business_id", businessId!);
+      if (error) throw error;
+      return data as { product_id: string; category_id: string }[];
+    },
+  });
+}
+
+
 export function useStorePromotions(businessId: string | undefined) {
   return useQuery({
     queryKey: ["store-promotions", businessId],

@@ -30,7 +30,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Plus, Search, Pencil, Upload, Download, ScanLine, Camera, Wand2, Printer } from "lucide-react";
-import { useCategories, useProducts, useSuppliers, logAudit } from "@/lib/queries";
+import {
+  useCategories,
+  useProducts,
+  useSuppliers,
+  logAudit,
+  useProductCategoryLinks,
+  syncProductCategories,
+} from "@/lib/queries";
+import { Checkbox } from "@/components/ui/checkbox";
+
 import { inr, num, UNITS, GST_RATES, downloadCsv } from "@/lib/format";
 import { ProductImportDialog } from "@/components/ProductImportDialog";
 import { MultiImagePicker, Thumb } from "@/components/ImagePicker";
@@ -151,6 +160,10 @@ function ProductsPage() {
   const { data: categories } = useCategories();
   const { data: products, isLoading } = useProducts();
   const { data: suppliers } = useSuppliers();
+  const { data: catLinks } = useProductCategoryLinks();
+  /** Extra categories selected in the form, besides the primary one. */
+  const [extraCats, setExtraCats] = useState<string[]>([]);
+
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [open, setOpen] = useState(false);
@@ -291,11 +304,19 @@ function ProductsPage() {
         status: form.status,
       };
 
+      const allCats = [...new Set([form.category_id, ...extraCats])];
+
       if (form.id) {
         const { error } = await supabase.from("products").update(payload).eq("id", form.id);
         if (error) throw error;
         await saveGallery("product", form.id, gallery);
-        await logAudit("Products", "Product Updated", form.id, null, payload);
+        const bid =
+          (products ?? []).find((p) => p.id === form.id)?.business_id ?? activeBusiness?.id;
+        if (bid) await syncProductCategories(form.id, bid, allCats);
+        await logAudit("Products", "Product Updated", form.id, null, {
+          ...payload,
+          categories: allCats,
+        });
         if (payload.barcode) await logBarcodeAudit("Barcode Saved", form.id, payload.barcode);
       } else {
         const opening = Number(form.opening_stock);
@@ -317,7 +338,11 @@ function ProductsPage() {
           if (te) throw te;
         }
         await saveGallery("product", data.id, gallery);
-        await logAudit("Products", "Product Created", data.id, null, payload);
+        await syncProductCategories(data.id, data.business_id, allCats);
+        await logAudit("Products", "Product Created", data.id, null, {
+          ...payload,
+          categories: allCats,
+        });
         if (payload.barcode)
           await logBarcodeAudit("Product Created Using Barcode", data.id, payload.barcode);
       }
@@ -327,16 +352,30 @@ function ProductsPage() {
       setOpen(false);
       void qc.invalidateQueries({ queryKey: ["products"] });
       void qc.invalidateQueries({ queryKey: ["category-product-counts"] });
+      void qc.invalidateQueries({ queryKey: ["product-categories"] });
       void qc.invalidateQueries({ queryKey: ["catalog-images"] });
     },
+
     onError: (e: Error) => toast.error(e.message),
   });
+
+  /** Product id -> all category ids it is mapped to. */
+  const catsByProduct = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const l of catLinks ?? [])
+      map.set(l.product_id, [...(map.get(l.product_id) ?? []), l.category_id]);
+    return map;
+  }, [catLinks]);
 
   const rows = useMemo(() => {
     const s = search.toLowerCase();
     return (products ?? []).filter((p) => {
       const cat = p.categories as { id: string; parent_id: string | null } | null;
-      const inCat = catFilter === "all" || isUnder(cat?.id, catFilter);
+      const mapped = catsByProduct.get(p.id) ?? [];
+      const inCat =
+        catFilter === "all" ||
+        isUnder(cat?.id, catFilter) ||
+        mapped.some((c) => isUnder(c, catFilter));
 
       const match =
         !s ||
@@ -345,14 +384,16 @@ function ProductsPage() {
         (p.barcode ?? "").toLowerCase().includes(s);
       return inCat && match;
     });
-  }, [products, search, catFilter]);
+  }, [products, search, catFilter, catsByProduct]);
 
   function openNew() {
     setForm(emptyProduct);
     setGallery([]);
+    setExtraCats([]);
     setStep("category");
     setOpen(true);
   }
+
 
   return (
     <div>
@@ -466,8 +507,21 @@ function ProductsPage() {
 
                       <TableCell className="font-mono text-xs">{p.sku}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {(p.categories as { name: string } | null)?.name}
+                        <div className="flex flex-wrap gap-1">
+                          {(catsByProduct.get(p.id)?.length
+                            ? catsByProduct.get(p.id)!
+                            : [p.category_id]
+                          ).map((cid) => (
+                            <Badge
+                              key={cid}
+                              variant={cid === p.category_id ? "secondary" : "outline"}
+                            >
+                              {catById.get(cid)?.name ?? "—"}
+                            </Badge>
+                          ))}
+                        </div>
                       </TableCell>
+
                       <TableCell className="tabular text-right">{inr(p.purchase_price)}</TableCell>
                       <TableCell className="tabular text-right">{inr(p.selling_price)}</TableCell>
                       <TableCell className="tabular text-right">{p.gst_rate}%</TableCell>
@@ -519,7 +573,11 @@ function ProductsPage() {
                               status: p.status,
                             });
 
+                            setExtraCats(
+                              (catsByProduct.get(p.id) ?? []).filter((c) => c !== p.category_id),
+                            );
                             setGallery([]);
+
                             void fetchGallery("product", p.id).then((g) => {
                               setGallery(
                                 g.length
@@ -585,6 +643,36 @@ function ProductsPage() {
                   Selected: {selectedChain.map((id) => catById.get(id)?.name).filter(Boolean).join(" → ")}
                 </p>
               )}
+
+              <div className="space-y-2 rounded-md border p-3">
+                <Label>Additional categories (optional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  The same product can appear under more than one category. Stock, price and
+                  barcode stay on the single product record.
+                </p>
+                <div className="grid max-h-56 gap-1.5 overflow-y-auto sm:grid-cols-2">
+                  {catTree
+                    .filter((c) => c.id !== form.category_id)
+                    .map((c) => (
+                      <label
+                        key={c.id}
+                        className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted"
+                        style={{ paddingLeft: `${4 + c.depth * 14}px` }}
+                      >
+                        <Checkbox
+                          checked={extraCats.includes(c.id)}
+                          onCheckedChange={(v) =>
+                            setExtraCats((prev) =>
+                              v ? [...prev, c.id] : prev.filter((x) => x !== c.id),
+                            )
+                          }
+                        />
+                        <span>{c.name}</span>
+                      </label>
+                    ))}
+                </div>
+              </div>
+
               <Button type="button" disabled={!form.category_id} onClick={() => setStep("info")}>
                 Continue
               </Button>

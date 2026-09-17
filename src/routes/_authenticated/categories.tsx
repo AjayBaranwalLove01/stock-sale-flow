@@ -39,7 +39,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Search, CornerDownRight } from "lucide-react";
-import { useCategories, logAudit, type Category } from "@/lib/queries";
+import {
+  useCategories,
+  logAudit,
+  type Category,
+  useProductCategoryLinks,
+  useUnmapProduct,
+  useProducts,
+} from "@/lib/queries";
+
 import { MultiImagePicker, Thumb } from "@/components/ImagePicker";
 import { fetchGallery, saveGallery, type GalleryImage } from "@/lib/images";
 import { dateFmt } from "@/lib/format";
@@ -83,17 +91,32 @@ function CategoriesPage() {
   const [form, setForm] = useState(empty);
   const [toDelete, setToDelete] = useState<Category | null>(null);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const [viewCat, setViewCat] = useState<Category | null>(null);
+  const { data: links } = useProductCategoryLinks();
+  const { data: allProducts } = useProducts();
+  const unmap = useUnmapProduct();
+
+  /** Products mapped to the category currently being inspected. */
+  const mappedProducts = useMemo(() => {
+    if (!viewCat) return [];
+    const ids = new Set(
+      (links ?? []).filter((l) => l.category_id === viewCat.id).map((l) => l.product_id),
+    );
+    return (allProducts ?? []).filter((p) => ids.has(p.id));
+  }, [viewCat, links, allProducts]);
+
 
   const { data: counts } = useQuery({
     queryKey: ["category-product-counts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("category_id");
+      const { data, error } = await supabase.from("product_categories").select("category_id");
       if (error) throw error;
       const map: Record<string, number> = {};
       for (const p of data) map[p.category_id] = (map[p.category_id] ?? 0) + 1;
       return map;
     },
   });
+
 
   const save = useMutation({
     mutationFn: async () => {
@@ -309,7 +332,12 @@ function CategoriesPage() {
                   <TableCell className="text-muted-foreground">
                     {c.parent_id ? nameOf.get(c.parent_id) : "—"}
                   </TableCell>
-                  <TableCell className="tabular text-right">{counts?.[c.id] ?? 0}</TableCell>
+                  <TableCell className="tabular text-right">
+                    <Button variant="link" className="h-auto p-0" onClick={() => setViewCat(c)}>
+                      {counts?.[c.id] ?? 0}
+                    </Button>
+                  </TableCell>
+
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Switch
@@ -470,6 +498,78 @@ function CategoriesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!viewCat} onOpenChange={(o) => !o && setViewCat(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Products in {viewCat?.name}</DialogTitle>
+            <DialogDescription>
+              Products mapped to this category. Use Category Mapping to add more.
+            </DialogDescription>
+          </DialogHeader>
+          {mappedProducts.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No products mapped to this category yet.
+            </p>
+          ) : (
+            <div className="max-h-[420px] overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="w-[60px]" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mappedProducts.map((p) => {
+                    const link = (links ?? []).find(
+                      (l) => l.product_id === p.id && l.category_id === viewCat?.id,
+                    );
+                    return (
+                      <TableRow key={p.id}>
+                        <TableCell>{p.name}</TableCell>
+                        <TableCell className="font-mono text-xs">{p.sku}</TableCell>
+                        <TableCell>
+                          <Badge variant={p.status === "active" ? "secondary" : "outline"}>
+                            {p.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={!link || p.category_id === viewCat?.id}
+                            title={
+                              p.category_id === viewCat?.id
+                                ? "Primary category — change it on the product"
+                                : "Remove from this category"
+                            }
+                            onClick={() =>
+                              viewCat &&
+                              unmap.mutate({
+                                productId: p.id,
+                                categoryId: viewCat.id,
+                                productName: p.name,
+                                categoryName: viewCat.name,
+                              })
+                            }
+
+                          >
+                            <Trash2 className="size-4 text-destructive" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
