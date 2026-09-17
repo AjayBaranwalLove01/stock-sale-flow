@@ -160,6 +160,10 @@ function ProductsPage() {
   const { data: categories } = useCategories();
   const { data: products, isLoading } = useProducts();
   const { data: suppliers } = useSuppliers();
+  const { data: catLinks } = useProductCategoryLinks();
+  /** Extra categories selected in the form, besides the primary one. */
+  const [extraCats, setExtraCats] = useState<string[]>([]);
+
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [open, setOpen] = useState(false);
