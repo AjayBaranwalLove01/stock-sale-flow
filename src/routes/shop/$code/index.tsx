@@ -43,8 +43,10 @@ function StoreHome() {
   const { data: business } = useStoreBusiness(code);
   const { data: products, isLoading } = useStoreProducts(business?.id);
   const { data: categories } = useStoreCategories(business?.id);
+  const { data: mappings } = useStoreProductCategories(business?.id);
   const { data: promotions } = useStorePromotions(business?.id);
   const cart = useCart(code);
+
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
@@ -84,12 +86,33 @@ function StoreHome() {
     return ids;
   }, [category, categories]);
 
+  // Product id -> every category it is mapped to (plus its primary category).
+  const productCats = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const m of mappings ?? []) {
+      if (!map.has(m.product_id)) map.set(m.product_id, new Set());
+      map.get(m.product_id)!.add(m.category_id);
+    }
+    return map;
+  }, [mappings]);
+
   const list = useMemo(() => {
-    let rows = (products ?? []).filter(
-      (p) =>
-        (!categoryIds || categoryIds.has(p.category_id)) &&
-        [p.name, p.brand, p.sku].some((v) => (v ?? "").toLowerCase().includes(search.toLowerCase())),
-    );
+    const seen = new Set<string>();
+    let rows = (products ?? []).filter((p) => {
+      if (seen.has(p.id)) return false;
+      const inCat =
+        !categoryIds ||
+        categoryIds.has(p.category_id) ||
+        [...(productCats.get(p.id) ?? [])].some((c) => categoryIds.has(c));
+      const matches = [p.name, p.brand, p.sku].some((v) =>
+        (v ?? "").toLowerCase().includes(search.toLowerCase()),
+      );
+      if (inCat && matches) {
+        seen.add(p.id);
+        return true;
+      }
+      return false;
+    });
     rows = [...rows].sort((a, b) =>
       sort === "price-asc"
         ? a.selling_price - b.selling_price
@@ -98,7 +121,8 @@ function StoreHome() {
           : a.name.localeCompare(b.name),
     );
     return rows;
-  }, [products, categoryIds, search, sort]);
+  }, [products, categoryIds, productCats, search, sort]);
+
 
   return (
     <div className="space-y-6">
