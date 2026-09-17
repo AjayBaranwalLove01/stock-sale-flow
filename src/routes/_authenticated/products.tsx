@@ -573,7 +573,11 @@ function ProductsPage() {
                               status: p.status,
                             });
 
+                            setExtraCats(
+                              (catsByProduct.get(p.id) ?? []).filter((c) => c !== p.category_id),
+                            );
                             setGallery([]);
+
                             void fetchGallery("product", p.id).then((g) => {
                               setGallery(
                                 g.length
