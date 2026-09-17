@@ -332,7 +332,12 @@ function CategoriesPage() {
                   <TableCell className="text-muted-foreground">
                     {c.parent_id ? nameOf.get(c.parent_id) : "—"}
                   </TableCell>
-                  <TableCell className="tabular text-right">{counts?.[c.id] ?? 0}</TableCell>
+                  <TableCell className="tabular text-right">
+                    <Button variant="link" className="h-auto p-0" onClick={() => setViewCat(c)}>
+                      {counts?.[c.id] ?? 0}
+                    </Button>
+                  </TableCell>
+
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Switch
