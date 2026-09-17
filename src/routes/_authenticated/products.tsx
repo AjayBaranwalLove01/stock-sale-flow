@@ -359,11 +359,23 @@ function ProductsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /** Product id -> all category ids it is mapped to. */
+  const catsByProduct = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const l of catLinks ?? [])
+      map.set(l.product_id, [...(map.get(l.product_id) ?? []), l.category_id]);
+    return map;
+  }, [catLinks]);
+
   const rows = useMemo(() => {
     const s = search.toLowerCase();
     return (products ?? []).filter((p) => {
       const cat = p.categories as { id: string; parent_id: string | null } | null;
-      const inCat = catFilter === "all" || isUnder(cat?.id, catFilter);
+      const mapped = catsByProduct.get(p.id) ?? [];
+      const inCat =
+        catFilter === "all" ||
+        isUnder(cat?.id, catFilter) ||
+        mapped.some((c) => isUnder(c, catFilter));
 
       const match =
         !s ||
@@ -372,14 +384,16 @@ function ProductsPage() {
         (p.barcode ?? "").toLowerCase().includes(s);
       return inCat && match;
     });
-  }, [products, search, catFilter]);
+  }, [products, search, catFilter, catsByProduct]);
 
   function openNew() {
     setForm(emptyProduct);
     setGallery([]);
+    setExtraCats([]);
     setStep("category");
     setOpen(true);
   }
+
 
   return (
     <div>
