@@ -546,7 +546,16 @@ function CategoriesPage() {
                                 ? "Primary category — change it on the product"
                                 : "Remove from this category"
                             }
-                            onClick={() => link && unmap.mutate(link)}
+                            onClick={() =>
+                              viewCat &&
+                              unmap.mutate({
+                                productId: p.id,
+                                categoryId: viewCat.id,
+                                productName: p.name,
+                                categoryName: viewCat.name,
+                              })
+                            }
+
                           >
                             <Trash2 className="size-4 text-destructive" />
                           </Button>
