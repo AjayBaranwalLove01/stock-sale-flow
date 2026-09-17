@@ -643,6 +643,36 @@ function ProductsPage() {
                   Selected: {selectedChain.map((id) => catById.get(id)?.name).filter(Boolean).join(" → ")}
                 </p>
               )}
+
+              <div className="space-y-2 rounded-md border p-3">
+                <Label>Additional categories (optional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  The same product can appear under more than one category. Stock, price and
+                  barcode stay on the single product record.
+                </p>
+                <div className="grid max-h-56 gap-1.5 overflow-y-auto sm:grid-cols-2">
+                  {catTree
+                    .filter((c) => c.id !== form.category_id)
+                    .map((c) => (
+                      <label
+                        key={c.id}
+                        className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted"
+                        style={{ paddingLeft: `${4 + c.depth * 14}px` }}
+                      >
+                        <Checkbox
+                          checked={extraCats.includes(c.id)}
+                          onCheckedChange={(v) =>
+                            setExtraCats((prev) =>
+                              v ? [...prev, c.id] : prev.filter((x) => x !== c.id),
+                            )
+                          }
+                        />
+                        <span>{c.name}</span>
+                      </label>
+                    ))}
+                </div>
+              </div>
+
               <Button type="button" disabled={!form.category_id} onClick={() => setStep("info")}>
                 Continue
               </Button>
