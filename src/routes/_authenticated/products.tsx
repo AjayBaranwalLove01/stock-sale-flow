@@ -29,7 +29,18 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Search, Pencil, Upload, Download, ScanLine, Camera, Wand2, Printer } from "lucide-react";
+import { Plus, Search, Pencil, Upload, Download, ScanLine, Camera, Wand2, Printer, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useAuth } from "@/hooks/useAuth";
 import {
   useCategories,
   useProducts,
@@ -176,6 +187,34 @@ function ProductsPage() {
   const [scanOpen, setScanOpen] = useState(false);
   const [barcodeNote, setBarcodeNote] = useState<string | null>(null);
   const [labelProduct, setLabelProduct] = useState<LabelProduct | null>(null);
+  const { roles } = useAuth();
+  const canDelete = roles.includes("admin") || roles.includes("super_admin");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; sku: string } | null>(
+    null,
+  );
+
+  const remove = useMutation({
+    mutationFn: async (p: { id: string; name: string; sku: string }) => {
+      await supabase.from("product_categories").delete().eq("product_id", p.id);
+      const { error } = await supabase.from("products").delete().eq("id", p.id);
+      if (error) {
+        if (error.code === "23503")
+          throw new Error(
+            "This product is used in purchases, sales or stock records and cannot be deleted. Set it to Inactive instead.",
+          );
+        throw error;
+      }
+      await logAudit("Products", "Product Deleted", p.id, { name: p.name, sku: p.sku }, null);
+    },
+    onSuccess: () => {
+      toast.success("Product deleted");
+      setDeleteTarget(null);
+      void qc.invalidateQueries({ queryKey: ["products"] });
+      void qc.invalidateQueries({ queryKey: ["product-categories"] });
+      void qc.invalidateQueries({ queryKey: ["category-product-counts"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   /** SKUs used by other products, for uniqueness checks and suggestions. */
   const takenSkus = useMemo(
@@ -593,6 +632,18 @@ function ProductsPage() {
                         >
                           <Pencil className="size-4" />
                         </Button>
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Delete ${p.name}`}
+                            onClick={() =>
+                              setDeleteTarget({ id: p.id, name: p.name, sku: p.sku })
+                            }
+                          >
+                            <Trash2 className="size-4 text-destructive" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -971,6 +1022,35 @@ function ProductsPage() {
         businessName={activeBusiness?.name ?? "Store"}
         onClose={() => setLabelProduct(null)}
       />
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => {
+          if (!o) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.name} (SKU {deleteTarget?.sku}) will be removed permanently along with
+              its category mappings. Products already used in sales, purchases or stock records
+              cannot be deleted — mark them Inactive instead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={remove.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={remove.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteTarget) remove.mutate(deleteTarget);
+              }}
+            >
+              {remove.isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
