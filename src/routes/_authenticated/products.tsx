@@ -187,6 +187,34 @@ function ProductsPage() {
   const [scanOpen, setScanOpen] = useState(false);
   const [barcodeNote, setBarcodeNote] = useState<string | null>(null);
   const [labelProduct, setLabelProduct] = useState<LabelProduct | null>(null);
+  const { roles } = useAuth();
+  const canDelete = roles.includes("admin") || roles.includes("super_admin");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; sku: string } | null>(
+    null,
+  );
+
+  const remove = useMutation({
+    mutationFn: async (p: { id: string; name: string; sku: string }) => {
+      await supabase.from("product_categories").delete().eq("product_id", p.id);
+      const { error } = await supabase.from("products").delete().eq("id", p.id);
+      if (error) {
+        if (error.code === "23503")
+          throw new Error(
+            "This product is used in purchases, sales or stock records and cannot be deleted. Set it to Inactive instead.",
+          );
+        throw error;
+      }
+      await logAudit("Products", "Product Deleted", p.id, { name: p.name, sku: p.sku }, null);
+    },
+    onSuccess: () => {
+      toast.success("Product deleted");
+      setDeleteTarget(null);
+      void qc.invalidateQueries({ queryKey: ["products"] });
+      void qc.invalidateQueries({ queryKey: ["product-categories"] });
+      void qc.invalidateQueries({ queryKey: ["category-product-counts"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   /** SKUs used by other products, for uniqueness checks and suggestions. */
   const takenSkus = useMemo(
