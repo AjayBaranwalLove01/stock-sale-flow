@@ -632,6 +632,18 @@ function ProductsPage() {
                         >
                           <Pencil className="size-4" />
                         </Button>
+                        {canDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Delete ${p.name}`}
+                            onClick={() =>
+                              setDeleteTarget({ id: p.id, name: p.name, sku: p.sku })
+                            }
+                          >
+                            <Trash2 className="size-4 text-destructive" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
