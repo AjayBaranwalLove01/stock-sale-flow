@@ -125,50 +125,72 @@ export function ProductImportDialog({
     mutationFn: async () => {
       const valid = rows.filter((r) => !r.errors.length);
       if (!valid.length) throw new Error("No valid rows to import");
-      for (const r of valid) {
+      const failed: { name: string; sku: string; error: string }[] = [];
+      let added = 0;
+      setProgress({ done: 0, total: valid.length });
+      for (let idx = 0; idx < valid.length; idx++) {
+        const r = valid[idx]!;
         const catName = (r.raw["Subcategory"] || r.raw["Category"] || "").trim();
         const cat = (categories ?? []).find((c) => c.name.toLowerCase() === catName.toLowerCase())!;
         const opening = Number(r.raw["OpeningStock"] ?? 0) || 0;
-        const { data, error } = await supabase
-          .from("products")
-          .insert({
-            name: r.raw["ProductName"] || r.raw["Product Name"]!,
-            sku: r.raw["SKU"]!,
-            barcode: r.raw["Barcode"] || null,
-            category_id: cat.id,
-            purchase_price: Number(r.raw["PurchasePrice"] ?? 0) || 0,
-            selling_price: Number(r.raw["SellingPrice"] ?? 0) || 0,
-            mrp: Number(r.raw["MRP"] ?? 0) || 0,
-            gst_rate: Number(r.raw["GST"] ?? 0) || 0,
-            unit: r.raw["Unit"] || "Piece",
-            opening_stock: opening,
-          })
-          .select()
-          .single();
-        if (error) throw error;
-        if (opening > 0) {
-          await supabase.from("inventory_transactions").insert({
-            product_id: data.id,
-            txn_type: "opening",
-            reference_type: "import",
-            reference_no: `IMP-${data.sku}`,
-            qty_in: opening,
-            unit_cost: Number(r.raw["PurchasePrice"] ?? 0) || 0,
+        try {
+          const { data, error } = await supabase
+            .from("products")
+            .insert({
+              name: r.raw["ProductName"] || r.raw["Product Name"]!,
+              sku: r.raw["SKU"]!,
+              barcode: r.raw["Barcode"] || null,
+              category_id: cat.id,
+              purchase_price: Number(r.raw["PurchasePrice"] ?? 0) || 0,
+              selling_price: Number(r.raw["SellingPrice"] ?? 0) || 0,
+              mrp: Number(r.raw["MRP"] ?? 0) || 0,
+              gst_rate: Number(r.raw["GST"] ?? 0) || 0,
+              unit: r.raw["Unit"] || "Piece",
+              opening_stock: opening,
+            })
+            .select()
+            .single();
+          if (error) throw error;
+          if (opening > 0) {
+            const { error: txErr } = await supabase.from("inventory_transactions").insert({
+              product_id: data.id,
+              txn_type: "opening",
+              reference_type: "import",
+              reference_no: `IMP-${data.sku}`,
+              qty_in: opening,
+              unit_cost: Number(r.raw["PurchasePrice"] ?? 0) || 0,
+            });
+            if (txErr) throw txErr;
+          }
+          added++;
+        } catch (e) {
+          failed.push({
+            name: r.raw["ProductName"] || r.raw["Product Name"] || "—",
+            sku: r.raw["SKU"] || "—",
+            error: e instanceof Error ? e.message : "Import failed",
           });
         }
+        setProgress({ done: idx + 1, total: valid.length });
       }
-      return valid.length;
+      return { added, failed };
     },
-    onSuccess: (n) => {
-      toast.success(`${n} products imported`);
+    onSuccess: ({ added, failed }) => {
+      setProgress(null);
+      setResult({ added, failed });
       setRows([]);
       onOpenChange(false);
       void qc.invalidateQueries({ queryKey: ["products"] });
+      void qc.invalidateQueries({ queryKey: ["product-categories"] });
+      void qc.invalidateQueries({ queryKey: ["category-product-counts"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      setProgress(null);
+      toast.error(e.message);
+    },
   });
 
   const validCount = rows.filter((r) => !r.errors.length).length;
+  const importedCount = progress ? progress.done : (result?.added ?? 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
