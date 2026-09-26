@@ -278,16 +278,70 @@ export function ProductImportDialog({
           </>
         )}
 
+        {progress && (
+          <div className="rounded-md border bg-muted/40 p-3 text-sm">
+            <div className="mb-2 flex items-center justify-between">
+              <span>Importing products…</span>
+              <span className="font-medium">
+                {progress.done} of {progress.total}
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${Math.round((progress.done / Math.max(progress.total, 1)) * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={importRows.isPending}>
             Cancel
           </Button>
           <Button
             disabled={!validCount || importRows.isPending}
             onClick={() => importRows.mutate()}
           >
-            Import {validCount} products
+            {importRows.isPending
+              ? `Importing ${importedCount} of ${progress?.total ?? validCount}…`
+              : `Import ${validCount} products`}
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={!!result} onOpenChange={(o) => !o && setResult(null)}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CheckCircle2 className="size-5 text-success" />
+            Import complete
+          </DialogTitle>
+          <DialogDescription>
+            {result && result.added > 0
+              ? `${result.added} ${result.added === 1 ? "product was" : "products were"} uploaded successfully.`
+              : "No products were uploaded."}
+          </DialogDescription>
+        </DialogHeader>
+        {result && result.failed.length > 0 && (
+          <div className="rounded-md border">
+            <div className="border-b bg-muted/40 px-3 py-2 text-sm font-medium">
+              Could not upload ({result.failed.length})
+            </div>
+            <div className="max-h-48 overflow-auto p-3 text-xs">
+              {result.failed.map((f, i) => (
+                <div key={i} className="py-1">
+                  <span className="font-medium">{f.name}</span>
+                  {f.sku !== "—" && <span className="font-mono"> ({f.sku})</span>}:{" "}
+                  <span className="text-destructive">{f.error}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <DialogFooter>
+          <Button onClick={() => setResult(null)}>Done</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
