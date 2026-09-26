@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useCategories, useProducts } from "@/lib/queries";
 import { downloadCsv } from "@/lib/format";
@@ -198,19 +199,33 @@ export function ProductImportDialog({
               <Badge className="bg-success text-success-foreground">{validCount} valid</Badge>
               <Badge variant="destructive">{rows.length - validCount} with errors</Badge>
             </div>
-            <div className="max-h-[45vh] overflow-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10" />
-                    <TableHead>Product</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Issues</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((r, i) => (
+            <Tabs defaultValue={validCount === rows.length ? "valid" : "errors"}>
+              <TabsList>
+                <TabsTrigger value="valid">Valid ({validCount})</TabsTrigger>
+                <TabsTrigger value="errors">
+                  With errors ({rows.length - validCount})
+                </TabsTrigger>
+              </TabsList>
+              {(["valid", "errors"] as const).map((tab) => (
+                <TabsContent key={tab} value={tab}>
+                  <div className="max-h-[45vh] overflow-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-10" />
+                          <TableHead>Product</TableHead>
+                          <TableHead>SKU</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead>Issues</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rows
+                          .map((r, i) => ({ r, i }))
+                          .filter(({ r }) =>
+                            tab === "valid" ? !r.errors.length : r.errors.length > 0,
+                          )
+                          .map(({ r, i }) => (
                     <TableRow key={i}>
                       <TableCell>
                         {r.errors.length ? (
@@ -226,10 +241,13 @@ export function ProductImportDialog({
                         {r.errors.join(", ")}
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
           </>
         )}
 
