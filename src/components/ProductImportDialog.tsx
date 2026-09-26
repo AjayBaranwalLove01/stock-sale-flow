@@ -89,6 +89,11 @@ export function ProductImportDialog({
   const { data: categories } = useCategories();
   const { data: products } = useProducts();
   const [rows, setRows] = useState<ParsedRow[]>([]);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [result, setResult] = useState<{
+    added: number;
+    failed: { name: string; sku: string; error: string }[];
+  } | null>(null);
 
   function validate(raws: Record<string, string>[]) {
     const skus = new Set((products ?? []).map((p) => p.sku.toLowerCase()));
