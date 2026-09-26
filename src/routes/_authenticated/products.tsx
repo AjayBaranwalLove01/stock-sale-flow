@@ -476,25 +476,20 @@ function ProductsPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant={catFilter === "all" ? "default" : "outline"}
-          onClick={() => setCatFilter("all")}
-        >
-          All
-        </Button>
-        {catTree.map((c) => (
-          <Button
-            key={c.id}
-            size="sm"
-            variant={catFilter === c.id ? "default" : "outline"}
-            onClick={() => setCatFilter(c.id)}
-          >
-            {c.depth > 0 ? `${"· ".repeat(c.depth)}${c.name}` : c.name}
-
-          </Button>
-        ))}
+      <div className="mb-4">
+        <Select value={catFilter} onValueChange={setCatFilter}>
+          <SelectTrigger className="w-full sm:w-[320px]">
+            <SelectValue placeholder="Filter by category" />
+          </SelectTrigger>
+          <SelectContent className="max-h-[320px]">
+            <SelectItem value="all">All categories</SelectItem>
+            {catTree.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.depth > 0 ? `${" ".repeat(c.depth * 4)}↳ ${c.name}` : c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <Card className="overflow-hidden py-0 shadow-none">
