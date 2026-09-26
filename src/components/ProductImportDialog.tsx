@@ -241,10 +241,13 @@ export function ProductImportDialog({
                         {r.errors.join(", ")}
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
           </>
         )}
 
