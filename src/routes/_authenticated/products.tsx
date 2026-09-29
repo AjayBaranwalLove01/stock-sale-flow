@@ -606,7 +606,7 @@ function ProductsPage() {
               className="pl-8"
               placeholder="Search by product name, SKU or barcode…"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); resetPage(); }}
             />
           </div>
         </div>
