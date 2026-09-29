@@ -346,5 +346,6 @@ export function ProductImportDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
