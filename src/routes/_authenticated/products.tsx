@@ -631,7 +631,7 @@ function ProductsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((p) => {
+                {pageRows.map((p) => {
                   const stock = Number(p.current_stock);
                   return (
                     <TableRow key={p.id}>
