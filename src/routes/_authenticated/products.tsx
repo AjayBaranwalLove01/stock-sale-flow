@@ -583,7 +583,7 @@ function ProductsPage() {
       />
 
       <div className="mb-4">
-        <Select value={catFilter} onValueChange={setCatFilter}>
+        <Select value={catFilter} onValueChange={(v) => { setCatFilter(v); resetPage(); }}>
           <SelectTrigger className="w-full sm:w-[320px]">
             <SelectValue placeholder="Filter by category" />
           </SelectTrigger>
