@@ -425,6 +425,112 @@ function ProductsPage() {
     });
   }, [products, search, catFilter, catsByProduct]);
 
+  // ----- Pagination (same pattern as the leads page) -----
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [gotoValue, setGotoValue] = useState("");
+  const resetPage = () => setPage(1);
+
+  const totalCount = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = useMemo(
+    () => rows.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [rows, safePage, pageSize],
+  );
+
+  const paginationBar = (
+    <Card className="mt-3 flex flex-wrap items-center gap-3 justify-between p-3 shadow-none">
+      <div className="text-sm text-muted-foreground">
+        Showing {totalCount === 0 ? 0 : (safePage - 1) * pageSize + 1}–
+        {Math.min(safePage * pageSize, totalCount)} of {totalCount.toLocaleString()} products
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Rows:</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => {
+              setPageSize(Number(v));
+              resetPage();
+            }}
+          >
+            <SelectTrigger className="w-[80px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="25">25</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="outline" disabled={safePage <= 1} onClick={() => setPage(1)}>
+            First
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={safePage <= 1}
+            onClick={() => setPage(safePage - 1)}
+          >
+            Prev
+          </Button>
+          <span className="px-2 text-sm">
+            Page {safePage} of {totalPages}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={safePage >= totalPages}
+            onClick={() => setPage(safePage + 1)}
+          >
+            Next
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={safePage >= totalPages}
+            onClick={() => setPage(totalPages)}
+          >
+            Last
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            className="w-[80px]"
+            placeholder="Go to"
+            value={gotoValue}
+            onChange={(e) => setGotoValue(e.target.value.replace(/\D/g, ""))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const p = Number(gotoValue);
+                if (p >= 1 && p <= totalPages) {
+                  setPage(p);
+                  setGotoValue("");
+                }
+              }
+            }}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              const p = Number(gotoValue);
+              if (p >= 1 && p <= totalPages) {
+                setPage(p);
+                setGotoValue("");
+              }
+            }}
+          >
+            Go
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+
   function openNew() {
     setForm(emptyProduct);
     setGallery([]);
