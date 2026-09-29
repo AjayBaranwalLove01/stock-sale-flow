@@ -1,0 +1,3 @@
+delete from public.inventory_transactions where product_id in (select id from public.products where business_id = 'b6a193f5-f6cb-4f5c-80f9-1548b58de680' and sku like 'ZZT-GLU-%');
+delete from public.product_categories where business_id = 'b6a193f5-f6cb-4f5c-80f9-1548b58de680' and product_id in (select id from public.products where business_id = 'b6a193f5-f6cb-4f5c-80f9-1548b58de680' and sku like 'ZZT-GLU-%');
+delete from public.products where business_id = 'b6a193f5-f6cb-4f5c-80f9-1548b58de680' and sku like 'ZZT-GLU-%';
