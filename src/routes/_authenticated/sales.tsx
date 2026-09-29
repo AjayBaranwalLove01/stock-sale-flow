@@ -29,15 +29,17 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { LocationSelector } from "@/components/LocationSelector";
-import { Search, Trash2, Plus, Minus, Receipt, ScanLine, Camera } from "lucide-react";
+import { Search, Trash2, Plus, Minus, Receipt, ScanLine, Camera, Pencil, ShieldCheck } from "lucide-react";
 import { useCategories, useCustomers, useProducts, useSales, useSettings } from "@/lib/queries";
 import { inr, dateTimeFmt, PAYMENT_METHODS } from "@/lib/format";
 import { useEnabledFeatures } from "@/hooks/useTenant";
+import { useAuth } from "@/hooks/useAuth";
 import { Thumb } from "@/components/ImagePicker";
 import { BarcodeInput, BarcodeScannerDialog } from "@/components/BarcodeScanner";
 import { lookupBarcode, logBarcodeAudit, useBarcode } from "@/lib/barcode";
 import { Link } from "@tanstack/react-router";
 import { PostSaleDialog, ReceiptActions } from "@/components/ReceiptPrint";
+import { EditInvoiceDialog } from "@/components/EditInvoiceDialog";
 
 
 export const Route = createFileRoute("/_authenticated/sales")({
@@ -587,7 +589,10 @@ function Invoices() {
   const rows = (data ?? []) as unknown as SaleRow[];
   const [q, setQ] = useState("");
   const [view, setView] = useState<SaleRow | null>(null);
+  const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const { data: settings } = useSettings();
+  const { roles, isSuperAdmin } = useAuth();
+  const isAdmin = isSuperAdmin || roles.includes("admin");
 
   const filtered = rows.filter((r) =>
     [r.invoice_no, r.customer_name].some((v) => (v ?? "").toLowerCase().includes(q.toLowerCase())),
@@ -595,11 +600,17 @@ function Invoices() {
 
   return (
     <Card>
-      <div className="flex items-center gap-2 border-b p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
         <div className="relative max-w-sm flex-1">
           <Search className="absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
           <Input className="pl-8" placeholder="Search invoice or customer…" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
+        {isAdmin && (
+          <Badge variant="outline" className="hidden sm:inline-flex items-center gap-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-300 px-2.5 py-1 text-xs">
+            <ShieldCheck className="size-3.5" />
+            Admin: Invoice modification enabled
+          </Badge>
+        )}
       </div>
       {isLoading ? (
         <LoadingRows />
@@ -635,10 +646,22 @@ function Invoices() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1.5">
                       <Button variant="ghost" size="sm" onClick={() => setView(r)}>
                         View
                       </Button>
+                      {isAdmin && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                          onClick={() => setEditingSaleId(r.id)}
+                          title="Modify invoice details, items, or payments"
+                        >
+                          <Pencil className="size-3" />
+                          Edit
+                        </Button>
+                      )}
                       <ReceiptActions saleId={r.id} reprint />
                     </div>
                   </TableCell>
@@ -705,11 +728,34 @@ function Invoices() {
               )}
             </div>
           )}
-          <DialogFooter>
-            {view && <ReceiptActions saleId={view.id} reprint />}
+          <DialogFooter className="flex flex-row items-center justify-between w-full">
+            {view && isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                onClick={() => {
+                  const id = view.id;
+                  setView(null);
+                  setEditingSaleId(id);
+                }}
+              >
+                <Pencil className="size-3.5" />
+                Modify Invoice
+              </Button>
+            )}
+            <div className="ml-auto flex items-center gap-2">
+              {view && <ReceiptActions saleId={view.id} reprint />}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EditInvoiceDialog
+        saleId={editingSaleId}
+        open={!!editingSaleId}
+        onOpenChange={(o) => !o && setEditingSaleId(null)}
+      />
     </Card>
   );
 }
