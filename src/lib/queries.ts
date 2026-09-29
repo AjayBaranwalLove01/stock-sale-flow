@@ -27,16 +27,40 @@ export function useCategories() {
   });
 }
 
+async function fetchProductsChunk(from: number, to: number) {
+  const { data, error } = await supabase
+    .from("products")
+    .select("*, categories(id,name,code,parent_id)")
+    .order("name")
+    .range(from, to);
+  if (error) throw error;
+  return data;
+}
+
+export type ProductWithCategory = NonNullable<
+  Awaited<ReturnType<typeof fetchProductsChunk>>
+>[number];
+
 export function useProducts() {
   return useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*, categories(id,name,code,parent_id)")
-        .order("name");
-      if (error) throw error;
-      return data;
+      const all: ProductWithCategory[] = [];
+      const CHUNK = 1000;
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const data = await fetchProductsChunk(from, from + CHUNK - 1);
+        if (data && data.length > 0) {
+          all.push(...data);
+        }
+        if (!data || data.length < CHUNK) {
+          hasMore = false;
+        } else {
+          from += CHUNK;
+        }
+      }
+      return all;
     },
   });
 }
@@ -53,13 +77,59 @@ export function useProductCategoryLinks() {
   return useQuery({
     queryKey: ["product-categories"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("product_categories")
-        .select("id,product_id,category_id,business_id");
-      if (error) throw error;
-      return data as ProductCategoryLink[];
+      const all: ProductCategoryLink[] = [];
+      const CHUNK = 1000;
+      let from = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("product_categories")
+          .select("id,product_id,category_id,business_id")
+          .range(from, from + CHUNK - 1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          all.push(...(data as ProductCategoryLink[]));
+        }
+        if (!data || data.length < CHUNK) {
+          hasMore = false;
+        } else {
+          from += CHUNK;
+        }
+      }
+      return all;
     },
   });
+}
+
+/** Fetch all products with stock and price info for the dashboard without 1,000 row truncation. */
+export async function fetchDashboardProducts() {
+  const all: {
+    id: string;
+    name: string;
+    current_stock: number;
+    purchase_price: number;
+    reorder_level: number;
+    category_id: string;
+  }[] = [];
+  const CHUNK = 1000;
+  let from = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from("products")
+      .select("id,name,current_stock,purchase_price,reorder_level,category_id")
+      .range(from, from + CHUNK - 1);
+    if (error) throw error;
+    if (data && data.length > 0) {
+      all.push(...(data as any[]));
+    }
+    if (!data || data.length < CHUNK) {
+      hasMore = false;
+    } else {
+      from += CHUNK;
+    }
+  }
+  return all;
 }
 
 /** Invalidate everything that depends on product↔category mappings. */

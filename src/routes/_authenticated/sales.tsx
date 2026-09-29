@@ -29,7 +29,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { LocationSelector } from "@/components/LocationSelector";
-import { Search, Trash2, Plus, Minus, Receipt, ScanLine, Camera, Pencil, ShieldCheck } from "lucide-react";
+import { Search, Trash2, Plus, Minus, Receipt, ScanLine, Camera, Pencil, ShieldCheck, UserPlus } from "lucide-react";
 import { useCategories, useCustomers, useProducts, useSales, useSettings } from "@/lib/queries";
 import { inr, dateTimeFmt, PAYMENT_METHODS } from "@/lib/format";
 import { useEnabledFeatures } from "@/hooks/useTenant";
@@ -40,6 +40,7 @@ import { lookupBarcode, logBarcodeAudit, useBarcode } from "@/lib/barcode";
 import { Link } from "@tanstack/react-router";
 import { PostSaleDialog, ReceiptActions } from "@/components/ReceiptPrint";
 import { EditInvoiceDialog } from "@/components/EditInvoiceDialog";
+import { QuickAddCustomerDialog } from "@/components/QuickAddCustomerDialog";
 
 
 export const Route = createFileRoute("/_authenticated/sales")({
@@ -125,6 +126,7 @@ function Pos() {
   const [notFound, setNotFound] = useState<string | null>(null);
   const scannedCodes = useRef<string[]>([]);
   const [lastSaleId, setLastSaleId] = useState<string | null>(null);
+  const [newCustomerOpen, setNewCustomerOpen] = useState(false);
 
   const filtered = useMemo(
     () =>
@@ -381,16 +383,46 @@ function Pos() {
 
       <Card className="flex flex-col p-3">
         <div className="space-y-2">
-          <Label>Customer</Label>
-          <Select value={customerId} onValueChange={setCustomerId}>
+          <div className="flex items-center justify-between">
+            <Label>Customer</Label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-5 px-1.5 text-xs text-primary hover:text-primary/80 gap-1 font-normal"
+              onClick={() => setNewCustomerOpen(true)}
+            >
+              <UserPlus className="size-3.5" />
+              Add New
+            </Button>
+          </div>
+          <Select
+            value={customerId}
+            onValueChange={(val) => {
+              if (val === "__new__") {
+                setNewCustomerOpen(true);
+                return;
+              }
+              setCustomerId(val);
+            }}
+          >
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue placeholder="Select Customer" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-[300px]">
+              <SelectItem
+                value="__new__"
+                className="text-primary font-semibold border-b py-2 focus:bg-primary/10 focus:text-primary cursor-pointer"
+              >
+                <span className="flex items-center gap-1.5">
+                  <UserPlus className="size-4" />
+                  + Add New Customer
+                </span>
+              </SelectItem>
               <SelectItem value="walkin">Walk-in Customer</SelectItem>
-              {((customers ?? []) as { id: string; name: string }[]).map((c) => (
+              {((customers ?? []) as { id: string; name: string; mobile?: string | null }[]).map((c) => (
                 <SelectItem key={c.id} value={c.id}>
-                  {c.name}
+                  {c.name} {c.mobile ? `(${c.mobile})` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -557,6 +589,14 @@ function Pos() {
         onOpenChange={setCamera}
         onDetected={(c) => void handleScan(c)}
         title="Scan product to sell"
+      />
+
+      <QuickAddCustomerDialog
+        open={newCustomerOpen}
+        onOpenChange={setNewCustomerOpen}
+        onCustomerCreated={(newCust) => {
+          setCustomerId(newCust.id);
+        }}
       />
     </div>
   );

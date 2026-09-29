@@ -264,3 +264,79 @@ export function useCanVerifyCollections() {
     staleTime: 60_000,
   });
 }
+
+/** Record old / opening Udhar balance for an existing customer */
+export function useAddOldUdhar() {
+  const invalidate = useCreditInvalidate();
+  return useMutation({
+    mutationFn: async (input: {
+      customerId: string;
+      amount: number;
+      creditDate: string;
+      dueDate?: string | undefined;
+      remarks?: string | undefined;
+    }) => {
+      if (!input.customerId) throw new Error("Please select a customer");
+      if (!input.amount || input.amount <= 0)
+        throw new Error("Please enter a valid outstanding Udhar amount");
+      if (!input.creditDate) throw new Error("Please select the applicable Udhar date");
+
+      // 1. Fetch customer details
+      const { data: cust, error: custErr } = await supabase
+        .from("customers")
+        .select("id, business_id, name, balance")
+        .eq("id", input.customerId)
+        .single();
+      if (custErr || !cust) throw new Error("Customer record not found");
+
+      const refNo = `OUD-${Date.now().toString().slice(-6)}`;
+      const dueDate = input.dueDate || input.creditDate;
+      const notes = input.remarks ? `[Old Udhar] ${input.remarks}` : "[Old Udhar]";
+
+      // 2. Insert into credit_transactions
+      const { data: txn, error: txnErr } = await supabase
+        .from("credit_transactions")
+        .insert({
+          business_id: cust.business_id,
+          customer_id: input.customerId,
+          sale_id: null,
+          reference_no: refNo,
+          credit_date: input.creditDate,
+          due_date: dueDate,
+          original_amount: input.amount,
+          outstanding_amount: input.amount,
+          paid_amount: 0,
+          status: "active",
+          notes: notes,
+          terms_days: 0,
+        })
+        .select()
+        .single();
+      if (txnErr) throw txnErr;
+
+      // 3. Update customer outstanding balance
+      const newBalance = (Number(cust.balance) || 0) + input.amount;
+      const { error: upErr } = await supabase
+        .from("customers")
+        .update({ balance: newBalance })
+        .eq("id", input.customerId);
+      if (upErr) throw upErr;
+
+      // 4. Log audit log
+      const { logAudit } = await import("@/lib/queries");
+      await logAudit("Credit", "Old Udhar Added", txn.id, null, {
+        customer_id: input.customerId,
+        customer_name: cust.name,
+        amount: input.amount,
+        credit_date: input.creditDate,
+        due_date: dueDate,
+        reference_no: refNo,
+        remarks: input.remarks ?? null,
+      });
+
+      return txn;
+    },
+    onSuccess: invalidate,
+  });
+}
+

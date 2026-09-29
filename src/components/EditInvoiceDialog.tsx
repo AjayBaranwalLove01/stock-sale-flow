@@ -44,8 +44,10 @@ import {
   Search,
   ShieldCheck,
   ShoppingBag,
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { QuickAddCustomerDialog } from "@/components/QuickAddCustomerDialog";
 
 export interface EditInvoiceLine {
   id?: string | undefined;
@@ -112,6 +114,7 @@ export function EditInvoiceDialog({
   const [dueDate, setDueDate] = useState("");
   const [isCreditSale, setIsCreditSale] = useState(false);
   const [lines, setLines] = useState<EditInvoiceLine[]>([]);
+  const [newCustomerOpen, setNewCustomerOpen] = useState(false);
 
   // Product search state for adding items
   const [productSearch, setProductSearch] = useState("");
@@ -748,12 +751,45 @@ export function EditInvoiceDialog({
             {/* 1. Header Information */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 rounded-lg border bg-muted/20 p-3.5">
               <div>
-                <Label className="text-xs font-medium text-muted-foreground">Customer</Label>
-                <Select value={customerId} onValueChange={(val) => setCustomerId(val)}>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium text-muted-foreground">Customer</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-4 p-0 text-[11px] text-primary hover:text-primary/80 gap-0.5"
+                    onClick={() => setNewCustomerOpen(true)}
+                  >
+                    <UserPlus className="size-3" />
+                    New
+                  </Button>
+                </div>
+                <Select
+                  value={customerId}
+                  onValueChange={(val) => {
+                    if (val === "__new__") {
+                      setNewCustomerOpen(true);
+                      return;
+                    }
+                    setCustomerId(val);
+                    const found = ((customers ?? []) as any[]).find((c) => c.id === val);
+                    if (found) setCustomerName(found.name);
+                    else if (val === "walkin") setCustomerName("Walk-in Customer");
+                  }}
+                >
                   <SelectTrigger className="mt-1 bg-background">
                     <SelectValue placeholder="Select Customer" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem
+                      value="__new__"
+                      className="text-primary font-semibold border-b py-2 focus:bg-primary/10 focus:text-primary cursor-pointer"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <UserPlus className="size-3.5" />
+                        + Add New Customer
+                      </span>
+                    </SelectItem>
                     <SelectItem value="walkin">Walk-in Customer</SelectItem>
                     {((customers ?? []) as any[]).map((c) => (
                       <SelectItem key={c.id} value={c.id}>
@@ -1186,6 +1222,15 @@ export function EditInvoiceDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <QuickAddCustomerDialog
+        open={newCustomerOpen}
+        onOpenChange={setNewCustomerOpen}
+        onCustomerCreated={(c) => {
+          setCustomerId(c.id);
+          setCustomerName(c.name);
+        }}
+      />
     </Dialog>
   );
 }

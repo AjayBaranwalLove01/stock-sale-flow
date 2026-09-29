@@ -31,6 +31,7 @@ import { useProducts, useInventoryTxns } from "@/lib/queries";
 import { LocationSelector } from "@/components/LocationSelector";
 import { useGodown, useMyWarehouses, useWarehouseStock } from "@/lib/warehouse";
 import { inr, num, dateTimeFmt, downloadCsv } from "@/lib/format";
+import { OpeningStockDialog, type OpeningStockProduct } from "@/components/OpeningStockDialog";
 
 export const Route = createFileRoute("/_authenticated/inventory")({
   head: () => ({
@@ -64,6 +65,7 @@ function InventoryPage() {
   const products = (data ?? []) as unknown as Product[];
   const [q, setQ] = useState("");
   const [adjust, setAdjust] = useState<Product | null>(null);
+  const [openingProduct, setOpeningProduct] = useState<OpeningStockProduct | null>(null);
   const { godown } = useGodown();
   const { warehouses } = useMyWarehouses();
   const [loc, setLoc] = useState<string | null>(null);
@@ -192,9 +194,28 @@ function InventoryPage() {
                           </TableCell>
                           <TableCell className="tabular text-right">{inr(stock * Number(p.purchase_price))}</TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="sm" onClick={() => setAdjust(p)}>
-                              <SlidersHorizontal className="mr-1.5 size-4" /> Adjust
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Opening Stock"
+                                onClick={() =>
+                                  setOpeningProduct({
+                                    id: p.id,
+                                    name: p.name,
+                                    sku: p.sku,
+                                    unit: p.unit,
+                                    purchase_price: Number(p.purchase_price || 0),
+                                    current_stock: Number(p.current_stock || 0),
+                                  })
+                                }
+                              >
+                                <Boxes className="mr-1.5 size-4 text-primary" /> Opening Stock
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => setAdjust(p)}>
+                                <SlidersHorizontal className="mr-1.5 size-4" /> Adjust
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -212,6 +233,11 @@ function InventoryPage() {
       </Tabs>
 
       <AdjustDialog product={adjust} onClose={() => setAdjust(null)} />
+      <OpeningStockDialog
+        product={openingProduct}
+        open={!!openingProduct}
+        onOpenChange={(o) => !o && setOpeningProduct(null)}
+      />
     </div>
   );
 }

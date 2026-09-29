@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -29,7 +30,25 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Search, Pencil, Upload, Download, ScanLine, Camera, Wand2, Printer, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Pencil,
+  Upload,
+  Download,
+  ScanLine,
+  Camera,
+  Wand2,
+  Printer,
+  Trash2,
+  Folder,
+  FolderTree,
+  ChevronRight,
+  CheckCircle2,
+  ExternalLink,
+  Layers,
+  Boxes,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,10 +68,10 @@ import {
   useProductCategoryLinks,
   syncProductCategories,
 } from "@/lib/queries";
-import { Checkbox } from "@/components/ui/checkbox";
 
 import { inr, num, UNITS, GST_RATES, downloadCsv } from "@/lib/format";
 import { ProductImportDialog } from "@/components/ProductImportDialog";
+import { OpeningStockDialog, type OpeningStockProduct } from "@/components/OpeningStockDialog";
 import { MultiImagePicker, Thumb } from "@/components/ImagePicker";
 import { fetchGallery, saveGallery, type GalleryImage } from "@/lib/images";
 import { BarcodeScannerDialog } from "@/components/BarcodeScanner";
@@ -172,8 +191,8 @@ function ProductsPage() {
   const { data: products, isLoading } = useProducts();
   const { data: suppliers } = useSuppliers();
   const { data: catLinks } = useProductCategoryLinks();
-  /** Extra categories selected in the form, besides the primary one. */
-  const [extraCats, setExtraCats] = useState<string[]>([]);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [activeParentId, setActiveParentId] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
@@ -187,6 +206,7 @@ function ProductsPage() {
   const [scanOpen, setScanOpen] = useState(false);
   const [barcodeNote, setBarcodeNote] = useState<string | null>(null);
   const [labelProduct, setLabelProduct] = useState<LabelProduct | null>(null);
+  const [openingStockProduct, setOpeningStockProduct] = useState<OpeningStockProduct | null>(null);
   const { roles } = useAuth();
   const canDelete = roles.includes("admin") || roles.includes("super_admin");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; sku: string } | null>(
@@ -299,6 +319,70 @@ function ProductsPage() {
     return false;
   };
 
+  const getCategoryRoot = (catId?: string | null): string | null => {
+    if (!catId) return null;
+    let cur = catById.get(catId);
+    while (cur && cur.parent_id) {
+      cur = catById.get(cur.parent_id);
+    }
+    return cur?.id ?? null;
+  };
+
+  const getCategoryPath = (catId?: string | null): string => {
+    if (!catId) return "";
+    const chain: string[] = [];
+    let cur = catById.get(catId);
+    while (cur) {
+      chain.unshift(cur.name);
+      cur = cur.parent_id ? catById.get(cur.parent_id) : undefined;
+    }
+    return chain.join(" ➔ ");
+  };
+
+  const rootCategories = useMemo(
+    () => (categories ?? []).filter((c) => !c.parent_id),
+    [categories],
+  );
+
+  const getSubcategories = (parentId: string) => {
+    return (categories ?? []).filter((c) => c.parent_id === parentId);
+  };
+
+  const categorySearchResults = useMemo(() => {
+    if (!categorySearch.trim()) return [];
+    const query = categorySearch.toLowerCase().trim();
+    return (categories ?? [])
+      .map((c) => ({
+        category: c,
+        path: getCategoryPath(c.id),
+      }))
+      .filter(
+        (item) =>
+          item.category.name.toLowerCase().includes(query) ||
+          item.path.toLowerCase().includes(query),
+      );
+  }, [categories, categorySearch, catById]);
+
+  const activeParent = useMemo(() => {
+    if (activeParentId) {
+      const p = catById.get(activeParentId);
+      if (p) return p;
+    }
+    if (form.category_id) {
+      const rootId = getCategoryRoot(form.category_id);
+      if (rootId) {
+        const root = catById.get(rootId);
+        if (root) return root;
+      }
+    }
+    return rootCategories[0] ?? null;
+  }, [activeParentId, form.category_id, catById, rootCategories]);
+
+  const activeSubcategories = useMemo(() => {
+    if (!activeParent) return [];
+    return (categories ?? []).filter((c) => c.parent_id === activeParent.id);
+  }, [activeParent, categories]);
+
 
   const save = useMutation({
     mutationFn: async () => {
@@ -343,7 +427,10 @@ function ProductsPage() {
         status: form.status,
       };
 
-      const allCats = [...new Set([form.category_id, ...extraCats])];
+      const existingExtraCats = form.id
+        ? (catsByProduct.get(form.id) ?? []).filter((c) => c !== form.category_id)
+        : [];
+      const allCats = [...new Set([form.category_id, ...existingExtraCats])];
 
       if (form.id) {
         const { error } = await supabase.from("products").update(payload).eq("id", form.id);
@@ -442,8 +529,13 @@ function ProductsPage() {
   const paginationBar = (
     <Card className="mt-3 flex flex-wrap items-center gap-3 justify-between p-3 shadow-none">
       <div className="text-sm text-muted-foreground">
-        Showing {totalCount === 0 ? 0 : (safePage - 1) * pageSize + 1}–
-        {Math.min(safePage * pageSize, totalCount)} of {totalCount.toLocaleString()} products
+        Showing <strong>{totalCount === 0 ? 0 : (safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, totalCount)}</strong> of{" "}
+        <strong>{totalCount.toLocaleString()}</strong> products
+        {products && products.length !== totalCount && (
+          <span className="ml-1 text-xs text-muted-foreground">
+            (filtered from {products.length.toLocaleString()} total)
+          </span>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
@@ -455,13 +547,15 @@ function ProductsPage() {
               resetPage();
             }}
           >
-            <SelectTrigger className="w-[80px]">
+            <SelectTrigger className="w-[85px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="25">25</SelectItem>
               <SelectItem value="50">50</SelectItem>
               <SelectItem value="100">100</SelectItem>
+              <SelectItem value="250">250</SelectItem>
+              <SelectItem value="500">500</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -534,8 +628,9 @@ function ProductsPage() {
   function openNew() {
     setForm(emptyProduct);
     setGallery([]);
-    setExtraCats([]);
     setStep("category");
+    setCategorySearch("");
+    setActiveParentId(null);
     setOpen(true);
   }
 
@@ -544,7 +639,11 @@ function ProductsPage() {
     <div>
       <PageHeader
         title="Products"
-        description="Every product belongs to a category. Add products step by step."
+        description={
+          products
+            ? `Manage your catalog (${products.length.toLocaleString()} total products). Add products step by step.`
+            : "Every product belongs to a category. Add products step by step."
+        }
         actions={
           <>
             <Button variant="outline" onClick={() => setImportOpen(true)}>
@@ -599,8 +698,8 @@ function ProductsPage() {
       </div>
 
       <Card className="overflow-hidden py-0 shadow-none">
-        <div className="border-b p-3">
-          <div className="relative">
+        <div className="border-b p-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="relative flex-1 min-w-[240px]">
             <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-8"
@@ -608,6 +707,20 @@ function ProductsPage() {
               value={search}
               onChange={(e) => { setSearch(e.target.value); resetPage(); }}
             />
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {isLoading ? (
+              <span>Loading products…</span>
+            ) : (
+              <span>
+                Showing <strong>{totalCount === 0 ? 0 : (safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, totalCount)}</strong> of <strong>{totalCount.toLocaleString()}</strong> products
+                {products && products.length !== totalCount && (
+                  <span className="text-xs text-muted-foreground ml-1">
+                    (out of {products.length.toLocaleString()} total)
+                  </span>
+                )}
+              </span>
+            )}
           </div>
         </div>
 
@@ -621,7 +734,6 @@ function ProductsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
-                  <TableHead>SKU</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead className="text-right">Purchase</TableHead>
                   <TableHead className="text-right">Selling</TableHead>
@@ -645,7 +757,6 @@ function ProductsPage() {
                         </div>
                       </TableCell>
 
-                      <TableCell className="font-mono text-xs">{p.sku}</TableCell>
                       <TableCell className="text-muted-foreground">
                         <div className="flex flex-wrap gap-1">
                           {(catsByProduct.get(p.id)?.length
@@ -713,9 +824,8 @@ function ProductsPage() {
                               status: p.status,
                             });
 
-                            setExtraCats(
-                              (catsByProduct.get(p.id) ?? []).filter((c) => c !== p.category_id),
-                            );
+                            setCategorySearch("");
+                            setActiveParentId(getCategoryRoot(p.category_id));
                             setGallery([]);
 
                             void fetchGallery("product", p.id).then((g) => {
@@ -732,6 +842,25 @@ function ProductsPage() {
                           }}
                         >
                           <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Opening Stock"
+                          aria-label={`Opening stock for ${p.name}`}
+                          onClick={() =>
+                            setOpeningStockProduct({
+                              id: p.id,
+                              name: p.name,
+                              sku: p.sku,
+                              unit: p.unit,
+                              purchase_price: Number(p.purchase_price || 0),
+                              opening_stock: Number(p.opening_stock || 0),
+                              current_stock: Number(p.current_stock || 0),
+                            })
+                          }
+                        >
+                          <Boxes className="size-4 text-primary" />
                         </Button>
                         {canDelete && (
                           <Button
@@ -775,64 +904,298 @@ function ProductsPage() {
             </TabsList>
 
             <TabsContent value="category" className="space-y-4 pt-4">
-              <div>
-                <Label className="mb-2 block">Select category or subcategory</Label>
-                <div className="flex flex-wrap gap-2">
-                  {catTree.map((c) => (
-                    <Button
-                      key={c.id}
-                      type="button"
-                      size="sm"
-                      variant={form.category_id === c.id ? "default" : "outline"}
-                      onClick={() => setForm({ ...form, category_id: c.id })}
-                    >
-                      {c.depth > 0 ? `${"— ".repeat(c.depth)}${c.name}` : c.name}
-                    </Button>
-                  ))}
-                </div>
+              {/* Category Search Bar */}
+              <div className="relative">
+                <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
+                <Input
+                  className="pl-9 pr-9 text-sm"
+                  placeholder="Search category or subcategory name..."
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                />
+                {categorySearch && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1 size-7 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setCategorySearch("")}
+                  >
+                    ✕
+                  </Button>
+                )}
               </div>
-              {selectedChain.length > 1 && (
-                <p className="text-sm text-muted-foreground">
-                  Selected: {selectedChain.map((id) => catById.get(id)?.name).filter(Boolean).join(" → ")}
-                </p>
+
+              {/* Search Results Mode */}
+              {categorySearch.trim() ? (
+                <div className="rounded-lg border bg-card p-2">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-2 py-1">
+                    Search Results ({categorySearchResults.length})
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto space-y-1 mt-1">
+                    {categorySearchResults.length === 0 ? (
+                      <p className="p-4 text-center text-sm text-muted-foreground">
+                        No category found matching "{categorySearch}".
+                      </p>
+                    ) : (
+                      categorySearchResults.map(({ category: c, path }) => {
+                        const isSelected = form.category_id === c.id;
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            className={`w-full flex items-center justify-between text-left p-2.5 rounded-md text-sm transition-colors ${
+                              isSelected
+                                ? "bg-primary/10 border border-primary/40 font-medium text-primary"
+                                : "hover:bg-muted border border-transparent"
+                            }`}
+                            onClick={() => {
+                              setForm({ ...form, category_id: c.id });
+                              setActiveParentId(getCategoryRoot(c.id));
+                            }}
+                          >
+                            <div className="flex items-center gap-2.5 truncate">
+                              <Folder className="size-4 shrink-0 text-primary/70" />
+                              <div className="truncate">
+                                <span className="font-medium text-foreground">{c.name}</span>
+                                <p className="text-xs text-muted-foreground truncate">{path}</p>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <Badge variant="default" className="text-[10px] gap-1 px-2 py-0.5 shrink-0 ml-2">
+                                <CheckCircle2 className="size-3" /> Selected
+                              </Badge>
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* Cascading 2-Panel Mode */
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-lg border bg-muted/20 p-2.5">
+                  {/* Panel 1: Main Category */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between px-1">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        1. Main Category
+                      </Label>
+                      <span className="text-[11px] text-muted-foreground">
+                        {rootCategories.length} categories
+                      </span>
+                    </div>
+                    <div className="max-h-[280px] overflow-y-auto space-y-1 pr-1">
+                      {rootCategories.map((c) => {
+                        const isSelected = form.category_id === c.id;
+                        const isActive = activeParent?.id === c.id;
+                        const subCount = getSubcategories(c.id).length;
+
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            className={`w-full flex items-center justify-between text-left px-3 py-2 rounded-md text-sm transition-all border ${
+                              isActive
+                                ? "bg-background border-primary shadow-xs font-semibold text-primary"
+                                : isSelected
+                                ? "bg-primary/10 border-primary/30 text-foreground font-medium"
+                                : "bg-background/80 hover:bg-background border-border/60 text-foreground hover:border-border"
+                            }`}
+                            onClick={() => {
+                              setActiveParentId(c.id);
+                              if (subCount === 0) {
+                                setForm({ ...form, category_id: c.id });
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <Folder className="size-4 shrink-0 text-primary/70" />
+                              <span className="truncate">{c.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                              {subCount > 0 ? (
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal">
+                                  {subCount} subs
+                                </Badge>
+                              ) : isSelected ? (
+                                <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4">
+                                  Selected
+                                </Badge>
+                              ) : null}
+                              <ChevronRight
+                                className={`size-3.5 transition-transform ${
+                                  isActive ? "text-primary" : "text-muted-foreground"
+                                }`}
+                              />
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Panel 2: Subcategories */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between px-1">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        2. Subcategory
+                      </Label>
+                      {activeParent && (
+                        <span className="text-[11px] text-muted-foreground truncate max-w-[140px]">
+                          for {activeParent.name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="max-h-[280px] overflow-y-auto space-y-1 pr-1">
+                      {!activeParent ? (
+                        <div className="flex flex-col items-center justify-center p-8 text-center text-xs text-muted-foreground border border-dashed rounded-md bg-background/50 h-[240px]">
+                          <FolderTree className="size-8 text-muted-foreground/40 mb-2" />
+                          <p>Select a main category on the left to view subcategories</p>
+                        </div>
+                      ) : activeSubcategories.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-6 text-center text-xs border rounded-md bg-background h-[240px] space-y-2.5">
+                          <CheckCircle2 className="size-7 text-emerald-500" />
+                          <div>
+                            <p className="font-semibold text-sm text-foreground">"{activeParent.name}"</p>
+                            <p className="text-muted-foreground mt-0.5">This category has no subcategories.</p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={form.category_id === activeParent.id ? "default" : "outline"}
+                            onClick={() => setForm({ ...form, category_id: activeParent.id })}
+                          >
+                            {form.category_id === activeParent.id
+                              ? "✓ Selected as Category"
+                              : `Select "${activeParent.name}"`}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {/* Option to select top-level main category directly */}
+                          <button
+                            type="button"
+                            className={`w-full flex items-center justify-between text-left px-3 py-2 rounded-md text-sm border transition-all ${
+                              form.category_id === activeParent.id
+                                ? "bg-primary text-primary-foreground border-primary font-medium"
+                                : "bg-background hover:bg-muted/70 border-dashed border-border text-foreground"
+                            }`}
+                            onClick={() => setForm({ ...form, category_id: activeParent.id })}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Layers className="size-4 shrink-0" />
+                              <span>Use <strong>{activeParent.name}</strong> (top-level)</span>
+                            </div>
+                            {form.category_id === activeParent.id && (
+                              <CheckCircle2 className="size-4" />
+                            )}
+                          </button>
+
+                          <Separator className="my-1.5" />
+
+                          {/* Subcategory list */}
+                          {activeSubcategories.map((sub) => {
+                            const isSelected = form.category_id === sub.id;
+                            return (
+                              <button
+                                key={sub.id}
+                                type="button"
+                                className={`w-full flex items-center justify-between text-left px-3 py-2 rounded-md text-sm border transition-all ${
+                                  isSelected
+                                    ? "bg-primary/10 border-primary text-primary font-medium"
+                                    : "bg-background hover:bg-muted border-border/60 text-foreground hover:border-border"
+                                }`}
+                                onClick={() => setForm({ ...form, category_id: sub.id })}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <span className="text-muted-foreground">↳</span>
+                                  <span className="truncate">{sub.name}</span>
+                                </div>
+                                {isSelected && (
+                                  <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4">
+                                    Selected
+                                  </Badge>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
 
-              <div className="space-y-2 rounded-md border p-3">
-                <Label>Additional categories (optional)</Label>
-                <p className="text-xs text-muted-foreground">
-                  The same product can appear under more than one category. Stock, price and
-                  barcode stay on the single product record.
-                </p>
-                <div className="grid max-h-56 gap-1.5 overflow-y-auto sm:grid-cols-2">
-                  {catTree
-                    .filter((c) => c.id !== form.category_id)
-                    .map((c) => (
-                      <label
-                        key={c.id}
-                        className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted"
-                        style={{ paddingLeft: `${4 + c.depth * 14}px` }}
-                      >
-                        <Checkbox
-                          checked={extraCats.includes(c.id)}
-                          onCheckedChange={(v) =>
-                            setExtraCats((prev) =>
-                              v ? [...prev, c.id] : prev.filter((x) => x !== c.id),
-                            )
-                          }
-                        />
-                        <span>{c.name}</span>
-                      </label>
-                    ))}
+              {/* Selected Category Confirmation Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-accent/40 p-3">
+                <div className="space-y-0.5">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <CheckCircle2 className="size-3.5 text-primary" />
+                    Selected Category:
+                  </div>
+                  <p className="text-sm font-bold text-foreground">
+                    {form.category_id ? (
+                      getCategoryPath(form.category_id)
+                    ) : (
+                      <span className="text-muted-foreground font-normal italic">
+                        Please choose a category or subcategory above
+                      </span>
+                    )}
+                  </p>
                 </div>
+
+                <Button
+                  type="button"
+                  disabled={!form.category_id}
+                  onClick={() => setStep("info")}
+                  className="gap-1.5"
+                >
+                  Continue to Details
+                  <ChevronRight className="size-4" />
+                </Button>
               </div>
 
-              <Button type="button" disabled={!form.category_id} onClick={() => setStep("info")}>
-                Continue
-              </Button>
+              {/* Additional Category Mapping Link Notice */}
+              <div className="flex items-start gap-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground">
+                <ExternalLink className="size-4 text-primary shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <span className="font-semibold text-foreground">Multiple Category Mapping:</span>{" "}
+                  Select the primary category for this product above. Additional categories can be
+                  assigned anytime via the{" "}
+                  <Link
+                    to="/category-mapping"
+                    className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 inline-flex items-center gap-0.5"
+                  >
+                    Category Mapping tool
+                    <ExternalLink className="size-3" />
+                  </Link>
+                  .
+                </div>
+              </div>
             </TabsContent>
 
 
             <TabsContent value="info" className="grid gap-3 pt-4 sm:grid-cols-2">
+              <div className="sm:col-span-2 flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-xs">
+                <div className="flex items-center gap-2 truncate">
+                  <Folder className="size-4 shrink-0 text-primary" />
+                  <span className="text-muted-foreground">Category:</span>
+                  <span className="font-semibold text-foreground truncate">
+                    {form.category_id ? getCategoryPath(form.category_id) : "None selected"}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs text-primary hover:text-primary/80 px-2"
+                  onClick={() => setStep("category")}
+                >
+                  Change
+                </Button>
+              </div>
+
               <F label="Product name">
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </F>
@@ -1022,7 +1385,38 @@ function ProductsPage() {
             </TabsContent>
 
             <TabsContent value="inventory" className="grid gap-3 pt-4 sm:grid-cols-2">
-              {!form.id && (
+              {form.id ? (
+                <div className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/40 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-semibold">Opening / Starting Stock</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Current: <span className="font-medium text-foreground">{form.opening_stock} {form.unit}</span>
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setOpeningStockProduct({
+                          id: form.id,
+                          name: form.name,
+                          sku: form.sku,
+                          unit: form.unit,
+                          purchase_price: Number(form.purchase_price || 0),
+                          opening_stock: Number(form.opening_stock || 0),
+                        });
+                      }}
+                    >
+                      <Boxes className="mr-1.5 size-4 text-primary" /> Update Opening Stock
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    You can update product-level or godown/location-wise opening stock anytime.
+                  </p>
+                </div>
+              ) : (
                 <NumF
                   label="Opening stock"
                   v={form.opening_stock}
@@ -1112,6 +1506,16 @@ function ProductsPage() {
       </Dialog>
 
       <ProductImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      <OpeningStockDialog
+        product={openingStockProduct}
+        open={!!openingStockProduct}
+        onOpenChange={(o) => !o && setOpeningStockProduct(null)}
+        onSuccess={() => {
+          if (openingStockProduct && form.id === openingStockProduct.id) {
+            void qc.invalidateQueries({ queryKey: ["products"] });
+          }
+        }}
+      />
 
       <BarcodeScannerDialog
         open={scanOpen}

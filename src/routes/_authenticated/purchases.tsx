@@ -27,9 +27,33 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { LocationSelector } from "@/components/LocationSelector";
-import { Plus, Search, Trash2, ShoppingCart, Wallet } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Trash2,
+  ShoppingCart,
+  Wallet,
+  Paperclip,
+  Upload,
+  FileText,
+  ExternalLink,
+  Download,
+  Image as ImageIcon,
+  X,
+  Loader2,
+} from "lucide-react";
 import { usePurchases, useProducts, useSuppliers } from "@/lib/queries";
-import { inr, dateFmt } from "@/lib/format";
+import { useActiveBusiness } from "@/hooks/useTenant";
+import { inr, dateFmt, dateTimeFmt } from "@/lib/format";
+import {
+  uploadPurchaseReceipt,
+  parsePurchaseNotes,
+  formatPurchaseNotes,
+  updatePurchaseReceiptRecord,
+  downloadReceipt,
+  getPurchaseReceiptUrl,
+  type PurchaseReceiptMeta,
+} from "@/lib/purchase-receipts";
 
 export const Route = createFileRoute("/_authenticated/purchases")({
   head: () => ({
@@ -48,18 +72,21 @@ type PLine = { product_id: string; name: string; quantity: number; rate: number;
 
 type PurchaseRow = {
   id: string;
+  business_id: string;
   purchase_no: string;
   purchase_date: string;
   due_date: string | null;
   grand_total: number;
   paid_amount: number;
   tax_amount: number;
+  notes: string | null;
   suppliers: { name: string } | null;
   purchase_items: { id: string; quantity: number; rate: number; total: number; products: { name: string; sku: string } | null }[];
 };
 
 function PurchasesPage() {
   const qc = useQueryClient();
+  const { data: activeBiz } = useActiveBusiness();
   const { data, isLoading } = usePurchases();
   const rows = (data ?? []) as unknown as PurchaseRow[];
   const { data: suppliers } = useSuppliers();
@@ -76,6 +103,8 @@ function PurchasesPage() {
   const [paid, setPaid] = useState("0");
   const [notes, setNotes] = useState("");
   const [warehouseId, setWarehouseId] = useState<string | null>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
 
   const [lines, setLines] = useState<PLine[]>([]);
   const [pick, setPick] = useState("");
@@ -120,6 +149,19 @@ function PurchasesPage() {
     mutationFn: async () => {
       if (!supplierId) throw new Error("Select a supplier");
       if (!lines.length) throw new Error("Add at least one item");
+
+      let finalNotes = notes || "";
+      if (receiptFile) {
+        setIsUploadingReceipt(true);
+        try {
+          const bid = activeBiz?.id || "biz";
+          const meta = await uploadPurchaseReceipt(receiptFile, bid);
+          finalNotes = formatPurchaseNotes(notes, meta);
+        } finally {
+          setIsUploadingReceipt(false);
+        }
+      }
+
       const { error } = await supabase.rpc("create_purchase", {
         p_supplier_id: supplierId,
         p_purchase_date: purchaseDate,
@@ -132,7 +174,7 @@ function PurchasesPage() {
           gst_rate: l.gst_rate,
         })),
         p_paid_amount: Number(paid || 0),
-        p_notes: notes || "",
+        p_notes: finalNotes,
         ...(warehouseId ? { p_warehouse_id: warehouseId } : {}),
       });
       if (error) throw error;
@@ -143,6 +185,7 @@ function PurchasesPage() {
       setLines([]);
       setPaid("0");
       setNotes("");
+      setReceiptFile(null);
       void qc.invalidateQueries({ queryKey: ["purchases"] });
       void qc.invalidateQueries({ queryKey: ["products"] });
       void qc.invalidateQueries({ queryKey: ["suppliers"] });
@@ -194,6 +237,7 @@ function PurchasesPage() {
                   <TableHead className="text-right">Items</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead className="text-right">Due</TableHead>
+                  <TableHead className="text-center">Receipt</TableHead>
                   <TableHead />
                 </TableRow>
               </TableHeader>
@@ -211,6 +255,23 @@ function PurchasesPage() {
                       ) : (
                         <Badge variant="secondary">Paid</Badge>
                       )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {(() => {
+                        const { receipt } = parsePurchaseNotes(r.notes);
+                        if (!receipt) return <span className="text-xs text-muted-foreground">—</span>;
+                        return (
+                          <Badge
+                            variant="secondary"
+                            className="cursor-pointer gap-1 text-[11px] font-normal hover:bg-secondary/80"
+                            onClick={() => setView(r)}
+                            title={`${receipt.fileName} (Click to view)`}
+                          >
+                            <Paperclip className="size-3 text-primary" />
+                            <span>{receipt.fileType === "pdf" ? "PDF" : "Image"}</span>
+                          </Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" onClick={() => setView(r)}>
@@ -336,30 +397,79 @@ function PurchasesPage() {
             </Table>
           </div>
 
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div className="flex gap-3">
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label>Notes</Label>
+                <Input
+                  placeholder="Optional purchase remarks..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Purchase Receipt / Invoice</Label>
+                <div className="mt-1 flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 px-3 py-2 border border-input rounded-md text-xs font-medium bg-background hover:bg-muted cursor-pointer transition-colors">
+                    <Upload className="size-3.5 text-primary" />
+                    <span>{receiptFile ? "Change Receipt" : "Upload Receipt"}</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg,image/png,image/jpeg,application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) {
+                          if (f.size > 15 * 1024 * 1024) {
+                            toast.error("Receipt file cannot exceed 15MB");
+                            return;
+                          }
+                          setReceiptFile(f);
+                        }
+                      }}
+                    />
+                  </label>
+                  {receiptFile && (
+                    <div className="flex items-center gap-1.5 text-xs bg-muted/80 px-2.5 py-1 rounded-md border">
+                      <Paperclip className="size-3.5 text-muted-foreground" />
+                      <span className="font-medium max-w-[140px] truncate">{receiptFile.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-4 p-0 ml-1 hover:text-destructive"
+                        onClick={() => setReceiptFile(null)}
+                      >
+                        <X className="size-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Supported formats: PDF, JPG, PNG (up to 15MB)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-end justify-between gap-3 pt-2 border-t">
               <div>
                 <Label>Paid Amount</Label>
                 <Input type="number" className="w-36" value={paid} onChange={(e) => setPaid(e.target.value)} />
               </div>
-              <div>
-                <Label>Notes</Label>
-                <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
-              </div>
-            </div>
-            <div className="w-52 space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span className="tabular">{inr(totals.sub)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Tax</span>
-                <span className="tabular">{inr(totals.tax)}</span>
-              </div>
-              <Separator />
-              <div className="flex justify-between font-semibold">
-                <span>Grand Total</span>
-                <span className="tabular">{inr(totals.grand)}</span>
+              <div className="w-52 space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="tabular">{inr(totals.sub)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Tax</span>
+                  <span className="tabular">{inr(totals.tax)}</span>
+                </div>
+                <Separator />
+                <div className="flex justify-between font-semibold">
+                  <span>Grand Total</span>
+                  <span className="tabular">{inr(totals.grand)}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -368,7 +478,8 @@ function PurchasesPage() {
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={() => create.mutate()} disabled={create.isPending}>
+            <Button onClick={() => create.mutate()} disabled={create.isPending || isUploadingReceipt}>
+              {create.isPending && <Loader2 className="mr-2 size-4 animate-spin" />}
               Save Purchase
             </Button>
           </DialogFooter>
@@ -376,30 +487,249 @@ function PurchasesPage() {
       </Dialog>
 
       <Dialog open={!!view} onOpenChange={(o) => !o && setView(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{view?.purchase_no}</DialogTitle>
-          </DialogHeader>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Rate</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {view?.purchase_items?.map((it) => (
-                <TableRow key={it.id}>
-                  <TableCell>{it.products?.name ?? "—"}</TableCell>
-                  <TableCell className="tabular text-right">{it.quantity}</TableCell>
-                  <TableCell className="tabular text-right">{inr(it.rate)}</TableCell>
-                  <TableCell className="tabular text-right">{inr(it.total)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {view && (() => {
+            const { userNotes, receipt } = parsePurchaseNotes(view.notes);
+            return (
+              <>
+                <DialogHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <DialogTitle className="text-xl">{view.purchase_no}</DialogTitle>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Supplier: <span className="font-medium text-foreground">{view.suppliers?.name ?? "—"}</span> · Date: {dateFmt(view.purchase_date)}
+                      </p>
+                    </div>
+                    {Number(view.grand_total) - Number(view.paid_amount) > 0 ? (
+                      <Badge variant="destructive">
+                        Due: {inr(Number(view.grand_total) - Number(view.paid_amount))}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Paid in Full</Badge>
+                    )}
+                  </div>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <div className="rounded-md border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead className="text-right">Qty</TableHead>
+                          <TableHead className="text-right">Rate</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {view.purchase_items?.map((it) => (
+                          <TableRow key={it.id}>
+                            <TableCell>
+                              <div className="font-medium text-sm">{it.products?.name ?? "—"}</div>
+                              {it.products?.sku && (
+                                <div className="text-xs text-muted-foreground">{it.products.sku}</div>
+                              )}
+                            </TableCell>
+                            <TableCell className="tabular text-right">{it.quantity}</TableCell>
+                            <TableCell className="tabular text-right">{inr(it.rate)}</TableCell>
+                            <TableCell className="tabular text-right">{inr(it.total)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <div className="flex justify-between items-center px-3 py-1.5 text-sm bg-muted/40 rounded-lg">
+                    <span className="text-muted-foreground">Grand Total:</span>
+                    <span className="font-bold text-base">{inr(view.grand_total)}</span>
+                  </div>
+
+                  {userNotes && (
+                    <div className="p-3 bg-muted/30 rounded-lg text-sm">
+                      <span className="text-xs font-semibold text-muted-foreground block mb-1">Notes:</span>
+                      <p className="text-foreground whitespace-pre-wrap">{userNotes}</p>
+                    </div>
+                  )}
+
+                  {/* Attached Purchase Receipt Section */}
+                  <div className="p-3 border rounded-lg bg-card space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-medium text-sm">
+                        <Paperclip className="size-4 text-primary" />
+                        <span>Purchase Receipt / Invoice</span>
+                      </div>
+                      {receipt && (
+                        <Badge variant="outline" className="text-xs font-normal">
+                          {receipt.fileType === "pdf" ? "PDF Document" : "Image File"}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {receipt ? (
+                      <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-muted/40 rounded-md">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded bg-background border text-primary">
+                            {receipt.fileType === "pdf" ? (
+                              <FileText className="size-5" />
+                            ) : (
+                              <ImageIcon className="size-5" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm max-w-[280px] truncate" title={receipt.fileName}>
+                              {receipt.fileName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {receipt.fileSize ? `${Math.round(receipt.fileSize / 1024)} KB · ` : ""}
+                              Uploaded {receipt.uploadedAt ? dateTimeFmt(receipt.uploadedAt) : "recently"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const url = await getPurchaseReceiptUrl(receipt.path);
+                                window.open(url, "_blank");
+                              } catch (err: unknown) {
+                                const e = err as Error;
+                                toast.error(e.message || "Failed to open receipt");
+                              }
+                            }}
+                          >
+                            <ExternalLink className="mr-1.5 size-3.5" /> View
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                await downloadReceipt(receipt.path, receipt.fileName);
+                              } catch (err: unknown) {
+                                const e = err as Error;
+                                toast.error(e.message || "Failed to download receipt");
+                              }
+                            }}
+                          >
+                            <Download className="mr-1.5 size-3.5" /> Download
+                          </Button>
+                          <label className="inline-flex">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={isUploadingReceipt}
+                              asChild
+                            >
+                              <span>
+                                {isUploadingReceipt ? (
+                                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                                ) : (
+                                  <Upload className="mr-1.5 size-3.5" />
+                                )}
+                                Replace
+                              </span>
+                            </Button>
+                            <input
+                              type="file"
+                              accept=".pdf,.png,.jpg,.jpeg,image/png,image/jpeg,application/pdf"
+                              className="hidden"
+                              onChange={async (e) => {
+                                const f = e.target.files?.[0];
+                                if (!f || !view) return;
+                                if (f.size > 15 * 1024 * 1024) {
+                                  toast.error("File size cannot exceed 15MB");
+                                  return;
+                                }
+                                setIsUploadingReceipt(true);
+                                try {
+                                  const bid = activeBiz?.id || view.business_id || "biz";
+                                  const newMeta = await uploadPurchaseReceipt(f, bid);
+                                  const updatedNotes = await updatePurchaseReceiptRecord(
+                                    view.id,
+                                    newMeta,
+                                    view.notes,
+                                  );
+                                  setView({ ...view, notes: updatedNotes });
+                                  void qc.invalidateQueries({ queryKey: ["purchases"] });
+                                  toast.success("Receipt replaced successfully");
+                                } catch (err: unknown) {
+                                  const e = err as Error;
+                                  toast.error(e.message || "Failed to replace receipt");
+                                } finally {
+                                  setIsUploadingReceipt(false);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between p-3 border border-dashed rounded-md bg-muted/20">
+                        <div className="text-xs text-muted-foreground">
+                          No receipt attached to this purchase.
+                        </div>
+                        <label className="inline-flex">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={isUploadingReceipt}
+                            asChild
+                          >
+                            <span>
+                              {isUploadingReceipt ? (
+                                <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                              ) : (
+                                <Upload className="mr-1.5 size-3.5" />
+                              )}
+                              Attach Receipt
+                            </span>
+                          </Button>
+                          <input
+                            type="file"
+                            accept=".pdf,.png,.jpg,.jpeg,image/png,image/jpeg,application/pdf"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const f = e.target.files?.[0];
+                              if (!f || !view) return;
+                              if (f.size > 15 * 1024 * 1024) {
+                                toast.error("File size cannot exceed 15MB");
+                                return;
+                              }
+                              setIsUploadingReceipt(true);
+                              try {
+                                const bid = activeBiz?.id || view.business_id || "biz";
+                                const newMeta = await uploadPurchaseReceipt(f, bid);
+                                const updatedNotes = await updatePurchaseReceiptRecord(
+                                  view.id,
+                                  newMeta,
+                                  view.notes,
+                                );
+                                setView({ ...view, notes: updatedNotes });
+                                void qc.invalidateQueries({ queryKey: ["purchases"] });
+                                toast.success("Receipt attached successfully");
+                              } catch (err: unknown) {
+                                const e = err as Error;
+                                toast.error(e.message || "Failed to attach receipt");
+                              } finally {
+                                setIsUploadingReceipt(false);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

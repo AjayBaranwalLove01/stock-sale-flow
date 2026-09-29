@@ -106,16 +106,11 @@ function CategoriesPage() {
   }, [viewCat, links, allProducts]);
 
 
-  const { data: counts } = useQuery({
-    queryKey: ["category-product-counts"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("product_categories").select("category_id");
-      if (error) throw error;
-      const map: Record<string, number> = {};
-      for (const p of data) map[p.category_id] = (map[p.category_id] ?? 0) + 1;
-      return map;
-    },
-  });
+  const counts = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of links ?? []) map[p.category_id] = (map[p.category_id] ?? 0) + 1;
+    return map;
+  }, [links]);
 
 
   const save = useMutation({
@@ -304,7 +299,6 @@ function CategoriesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Code</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Parent</TableHead>
                 <TableHead className="text-right">Products</TableHead>
@@ -316,7 +310,6 @@ function CategoriesPage() {
             <TableBody>
               {ordered.map((c) => (
                 <TableRow key={c.id}>
-                  <TableCell className="font-mono text-xs">{c.code}</TableCell>
                   <TableCell>
                     <span
                       className="flex items-center gap-1.5"

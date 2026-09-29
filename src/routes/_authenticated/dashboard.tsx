@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, StatCard, LoadingRows } from "@/components/shared";
+import { fetchDashboardProducts } from "@/lib/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,7 +117,7 @@ function Dashboard() {
           .select("id,purchase_date,grand_total")
           .gte("purchase_date", start.toISOString().slice(0, 10))
           .lte("purchase_date", end.toISOString().slice(0, 10)),
-        supabase.from("products").select("id,name,current_stock,purchase_price,reorder_level,category_id"),
+        fetchDashboardProducts().then((data) => ({ data, error: null as null })),
         supabase.from("categories").select("id,name"),
         supabase.from("customers").select("balance"),
         supabase.from("suppliers").select("balance"),

@@ -31,9 +31,11 @@ import {
   Search,
   Download,
   History,
+  Plus,
 } from "lucide-react";
 import { PageHeader, StatCard, EmptyState, LoadingRows } from "@/components/shared";
 import { inr, dateFmt, dateTimeFmt, downloadCsv } from "@/lib/format";
+import { AddOldUdharDialog } from "@/components/AddOldUdharDialog";
 import {
   useCreditTransactions,
   useCollectionEntries,
@@ -78,6 +80,7 @@ function CreditPage() {
   const { data: txns, isLoading } = useCreditTransactions();
   const { data: entries } = useCollectionEntries();
   const { data: canVerify } = useCanVerifyCollections();
+  const [oldUdharOpen, setOldUdharOpen] = useState(false);
   const rows = txns ?? [];
   const all = entries ?? [];
 
@@ -128,28 +131,33 @@ function CreditPage() {
         title="Customer Credit (Udhar)"
         description="Credit sales, due dates, outstanding balances and verified collections — per customer."
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              downloadCsv(
-                "credit-outstanding.csv",
-                rows.map((t) => ({
-                  Reference: t.reference_no,
-                  Customer: t.customers?.name ?? "",
-                  CreditDate: t.credit_date,
-                  DueDate: t.due_date,
-                  Amount: t.original_amount,
-                  Paid: t.paid_amount,
-                  Outstanding: t.outstanding_amount,
-                  DaysOverdue: daysOverdue(t.due_date),
-                  Status: CREDIT_STATUS_LABEL[effectiveStatus(t)],
-                })),
-              )
-            }
-          >
-            <Download className="mr-1.5 size-4" /> Export
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => setOldUdharOpen(true)}>
+              <Plus className="mr-1.5 size-4" /> Add Old Udhar
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                downloadCsv(
+                  "credit-outstanding.csv",
+                  rows.map((t) => ({
+                    Reference: t.reference_no,
+                    Customer: t.customers?.name ?? "",
+                    CreditDate: t.credit_date,
+                    DueDate: t.due_date,
+                    Amount: t.original_amount,
+                    Paid: t.paid_amount,
+                    Outstanding: t.outstanding_amount,
+                    DaysOverdue: daysOverdue(t.due_date),
+                    Status: CREDIT_STATUS_LABEL[effectiveStatus(t)],
+                  })),
+                )
+              }
+            >
+              <Download className="mr-1.5 size-4" /> Export
+            </Button>
+          </div>
         }
       />
 
@@ -209,6 +217,8 @@ function CreditPage() {
           <CollectionHistory entries={all} />
         </TabsContent>
       </Tabs>
+
+      <AddOldUdharDialog open={oldUdharOpen} onOpenChange={setOldUdharOpen} />
     </div>
   );
 }
@@ -258,9 +268,26 @@ function CreditTable({ rows, loading }: { rows: CreditTxn[]; loading?: boolean }
               {filtered.map((t) => {
                 const st = effectiveStatus(t);
                 const od = daysOverdue(t.due_date);
+                const isOldUdhar =
+                  !t.sale_id &&
+                  (t.reference_no.startsWith("OUD-") ||
+                    t.reference_no.startsWith("OLD-") ||
+                    t.notes?.includes("Old Udhar"));
                 return (
                   <TableRow key={t.id}>
-                    <TableCell className="font-medium">{t.reference_no}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">{t.reference_no}</span>
+                        {isOldUdhar && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0 h-4 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-300"
+                          >
+                            Old Udhar
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {t.customers?.name ?? "—"}
                       {t.customers?.mobile ? (
