@@ -129,24 +129,43 @@ function StoreHome() {
     <div className="space-y-6">
       {(promotions ?? []).length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2">
-          {(promotions ?? []).map((p) => (
-            <Card key={p.id} className="flex items-center gap-3 bg-secondary p-4">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <Megaphone className="size-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold">{p.title}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {p.description ??
-                    (p.discount_type === "percent"
-                      ? `${p.discount_value}% off`
-                      : p.discount_type === "flat"
-                        ? `${inr(p.discount_value)} off`
-                        : "")}
-                </p>
-              </div>
-            </Card>
-          ))}
+          {(promotions ?? []).map((p) => {
+            const promoProduct = p.product_id
+              ? (products ?? []).find((pr) => pr.id === p.product_id)
+              : undefined;
+            return (
+              <Card key={p.id} className="flex items-center gap-3 bg-secondary p-4">
+                {promoProduct ? (
+                  <Link
+                    to="/shop/$code/product/$id"
+                    params={{ code, id: promoProduct.id }}
+                    className="size-12 shrink-0 overflow-hidden rounded-md border bg-background"
+                  >
+                    <StoreImage
+                      path={promoProduct.image_sm ?? promoProduct.image_md}
+                      alt={promoProduct.name}
+                      iconClass="size-5"
+                    />
+                  </Link>
+                ) : (
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                    <Megaphone className="size-5" />
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{p.title}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {p.description ??
+                      (p.discount_type === "percent"
+                        ? `${p.discount_value}% off`
+                        : p.discount_type === "flat"
+                          ? `${inr(p.discount_value)} off`
+                          : "")}
+                  </p>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -216,7 +235,12 @@ function StoreHome() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        cart.add({ product_id: p.id, name: p.name, price: Number(p.selling_price) });
+                        cart.add({
+                          product_id: p.id,
+                          name: p.name,
+                          price: Number(p.selling_price),
+                          image_md: p.image_md,
+                        });
                         toast.success(`${p.name} added to cart`);
                       }}
                     >

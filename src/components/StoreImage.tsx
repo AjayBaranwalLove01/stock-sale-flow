@@ -1,4 +1,4 @@
-import { ImageOff } from "lucide-react";
+import { Package } from "lucide-react";
 import { useImageUrl } from "@/lib/images";
 
 /** Shows a stored catalog image (storage path or full URL) with a placeholder fallback. */
@@ -7,7 +7,7 @@ export function StoreImage({
   alt,
   iconClass = "size-8",
 }: {
-  path?: string | null;
+  path?: string | null | undefined;
   alt: string;
   iconClass?: string;
 }) {
@@ -16,10 +16,18 @@ export function StoreImage({
   const src = isUrl ? path : data;
   if (!src) {
     return (
-      <span className="flex size-full items-center justify-center text-muted-foreground">
-        <ImageOff className={iconClass} />
+      <span className="flex size-full items-center justify-center bg-muted text-muted-foreground">
+        <Package className={iconClass} />
       </span>
     );
   }
-  return <img src={src} alt={alt} loading="lazy" className="size-full object-cover" />;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      className="size-full object-contain"
+    />
+  );
 }

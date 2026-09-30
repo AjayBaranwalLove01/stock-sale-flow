@@ -8,6 +8,7 @@ import { PackageSearch } from "lucide-react";
 import { inr, dateTimeFmt } from "@/lib/format";
 import { useAuth } from "@/hooks/useAuth";
 import { useStoreBusiness } from "@/lib/storefront";
+import { StoreImage } from "@/components/StoreImage";
 
 export const Route = createFileRoute("/shop/$code/orders")({
   head: () => ({
@@ -29,7 +30,13 @@ type Row = {
   status: string;
   grand_total: number;
   created_at: string;
-  order_items: { id: string; product_name: string; quantity: number; total: number }[];
+  order_items: {
+    id: string;
+    product_id: string;
+    product_name: string;
+    quantity: number;
+    total: number;
+  }[];
 };
 
 function MyOrders() {
@@ -43,11 +50,34 @@ function MyOrders() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
-        .select("id, order_no, status, grand_total, created_at, order_items(id, product_name, quantity, total)")
+        .select(
+          "id, order_no, status, grand_total, created_at, order_items(id, product_id, product_name, quantity, total)",
+        )
         .eq("business_id", business!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as unknown as Row[];
+      const rows = data as unknown as Row[];
+      const productIds = [
+        ...new Set(rows.flatMap((o) => o.order_items.map((i) => i.product_id))),
+      ];
+      if (productIds.length > 0) {
+        const { data: prods } = await supabase
+          .from("storefront_products")
+          .select("id, image_sm, image_md")
+          .in("id", productIds);
+        const imgById = new Map<string, string | null>(
+          (prods ?? [])
+            .filter((p: { id: string | null }) => p.id != null)
+            .map((p: { id: string | null; image_sm: string | null; image_md: string | null }) => [
+              p.id as string,
+              p.image_sm ?? p.image_md,
+            ]),
+        );
+        for (const o of rows)
+          for (const i of o.order_items)
+            (i as { image?: string | null }).image = imgById.get(i.product_id) ?? null;
+      }
+      return rows;
     },
   });
 
@@ -86,10 +116,17 @@ function MyOrders() {
               </div>
               <Badge variant={o.status === "cancelled" ? "destructive" : "secondary"}>{o.status}</Badge>
             </div>
-            <div className="space-y-1 text-sm text-muted-foreground">
+            <div className="space-y-2 text-sm text-muted-foreground">
               {o.order_items.map((i) => (
-                <div key={i.id} className="flex justify-between">
-                  <span>
+                <div key={i.id} className="flex items-center gap-3">
+                  <span className="size-10 shrink-0 overflow-hidden rounded-md border bg-muted">
+                    <StoreImage
+                      path={(i as { image?: string | null }).image}
+                      alt={i.product_name}
+                      iconClass="size-4"
+                    />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">
                     {i.product_name} × {i.quantity}
                   </span>
                   <span className="tabular">{inr(i.total)}</span>
