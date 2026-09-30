@@ -136,7 +136,13 @@ export function useStorePromotions(businessId: string | undefined) {
   });
 }
 
-export type CartLine = { product_id: string; name: string; price: number; quantity: number };
+export type CartLine = {
+  product_id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image_md?: string | null;
+};
 
 const key = (slug: string) => `cart:${slug}`;
 
