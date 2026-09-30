@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import QRCode from "qrcode";
 import {
   getDisplayContent,
   pairDisplay,
@@ -310,7 +309,10 @@ export function Slide({
 
   useEffect(() => {
     if (item.show_qr && item.qr_url) {
-      void QRCode.toDataURL(item.qr_url, { margin: 1, width: 320 }).then(setQr).catch(() => setQr(null));
+      void import("qrcode")
+        .then(({ default: QRCode }) => QRCode.toDataURL(item.qr_url ?? "", { margin: 1, width: 320 }))
+        .then(setQr)
+        .catch(() => setQr(null));
     } else {
       setQr(null);
     }

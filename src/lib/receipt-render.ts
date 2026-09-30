@@ -1,5 +1,4 @@
 import JsBarcode from "jsbarcode";
-import QRCode from "qrcode";
 import { inr } from "@/lib/format";
 import type { PrinterType, ReceiptSale, ReceiptSettings } from "@/lib/receipt";
 
@@ -47,6 +46,7 @@ function barcodeSvg(value: string): string {
 
 async function qrDataUrl(value: string): Promise<string> {
   try {
+    const { default: QRCode } = await import("qrcode");
     return await QRCode.toDataURL(value, { margin: 0, width: 140 });
   } catch {
     return "";

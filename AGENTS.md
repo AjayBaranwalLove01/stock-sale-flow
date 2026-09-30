@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Load the `qrcode` package only inside browser actions because its PNG dependency is incompatible with the production server runtime.
