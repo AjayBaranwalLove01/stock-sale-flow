@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Trash2, ShoppingCart } from "lucide-react";
 import { inr } from "@/lib/format";
 import { useCart } from "@/lib/storefront";
+import { StoreImage } from "@/components/StoreImage";
 
 export const Route = createFileRoute("/shop/$code/cart")({
   head: () => ({
@@ -44,6 +45,13 @@ function CartPage() {
       <Card className="divide-y p-0">
         {cart.lines.map((l) => (
           <div key={l.product_id} className="flex items-center gap-3 p-3">
+            <Link
+              to="/shop/$code/product/$id"
+              params={{ code, id: l.product_id }}
+              className="size-16 shrink-0 overflow-hidden rounded-md border bg-muted"
+            >
+              <StoreImage path={l.image_md} alt={l.name} iconClass="size-6" />
+            </Link>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{l.name}</p>
               <p className="text-xs text-muted-foreground">{inr(l.price)} each</p>

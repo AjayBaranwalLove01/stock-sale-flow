@@ -13,6 +13,7 @@ import { z } from "zod";
 import { inr } from "@/lib/format";
 import { useCart, useStoreBusiness } from "@/lib/storefront";
 import { useAuth } from "@/hooks/useAuth";
+import { StoreImage } from "@/components/StoreImage";
 
 export const Route = createFileRoute("/shop/$code/checkout")({
   head: () => ({
@@ -264,10 +265,13 @@ function CheckoutPage() {
 
       <Card className="h-fit space-y-3 p-4">
         <p className="text-sm font-medium">Order summary</p>
-        <div className="space-y-1.5 text-sm">
+        <div className="space-y-2.5 text-sm">
           {cart.lines.map((l) => (
-            <div key={l.product_id} className="flex justify-between gap-3">
-              <span className="truncate text-muted-foreground">
+            <div key={l.product_id} className="flex items-center gap-3">
+              <span className="size-12 shrink-0 overflow-hidden rounded-md border bg-muted">
+                <StoreImage path={l.image_md} alt={l.name} iconClass="size-5" />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-muted-foreground">
                 {l.name} × {l.quantity}
               </span>
               <span className="tabular">{inr(l.price * l.quantity)}</span>
