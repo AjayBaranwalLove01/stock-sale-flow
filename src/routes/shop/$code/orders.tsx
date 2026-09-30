@@ -65,11 +65,13 @@ function MyOrders() {
           .from("storefront_products")
           .select("id, image_sm, image_md")
           .in("id", productIds);
-        const imgById = new Map(
-          (prods ?? []).map((p: { id: string; image_sm: string | null; image_md: string | null }) => [
-            p.id,
-            p.image_sm ?? p.image_md,
-          ]),
+        const imgById = new Map<string, string | null>(
+          (prods ?? [])
+            .filter((p: { id: string | null }) => p.id != null)
+            .map((p: { id: string | null; image_sm: string | null; image_md: string | null }) => [
+              p.id as string,
+              p.image_sm ?? p.image_md,
+            ]),
         );
         for (const o of rows)
           for (const i of o.order_items)
