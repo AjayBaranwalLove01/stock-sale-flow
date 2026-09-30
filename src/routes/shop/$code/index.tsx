@@ -216,7 +216,12 @@ function StoreHome() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        cart.add({ product_id: p.id, name: p.name, price: Number(p.selling_price) });
+                        cart.add({
+                          product_id: p.id,
+                          name: p.name,
+                          price: Number(p.selling_price),
+                          image_md: p.image_md,
+                        });
                         toast.success(`${p.name} added to cart`);
                       }}
                     >

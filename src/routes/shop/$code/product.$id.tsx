@@ -90,6 +90,7 @@ function ProductPage() {
                   product_id: product.id,
                   name: product.name,
                   price: Number(product.selling_price),
+                  image_md: product.image_md,
                 });
                 toast.success("Added to cart");
               }}
