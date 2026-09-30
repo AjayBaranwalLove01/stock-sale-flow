@@ -7,7 +7,7 @@ export function StoreImage({
   alt,
   iconClass = "size-8",
 }: {
-  path?: string | null;
+  path?: string | null | undefined;
   alt: string;
   iconClass?: string;
 }) {
