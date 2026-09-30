@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
+import { StoreImage } from "@/components/StoreImage";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -55,15 +56,11 @@ function ProductPage() {
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="flex aspect-square items-center justify-center overflow-hidden bg-muted p-0">
-          {product.image_lg || product.image_md ? (
-            <img
-              src={product.image_lg ?? product.image_md ?? ""}
-              alt={product.name}
-              className="size-full object-cover"
-            />
-          ) : (
-            <ImageOff className="size-10 text-muted-foreground" />
-          )}
+          <StoreImage
+            path={product.image_lg ?? product.image_md}
+            alt={product.name}
+            iconClass="size-10"
+          />
         </Card>
 
         <div className="space-y-4">
