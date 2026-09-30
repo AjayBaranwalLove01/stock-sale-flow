@@ -197,13 +197,7 @@ function StoreHome() {
                 params={{ code, id: p.id }}
                 className="block aspect-square bg-muted"
               >
-                {p.image_md ? (
-                  <img src={p.image_md} alt={p.name} loading="lazy" className="size-full object-cover" />
-                ) : (
-                  <span className="flex size-full items-center justify-center text-muted-foreground">
-                    <ImageOff className="size-8" />
-                  </span>
-                )}
+                <StoreImage path={p.image_md} alt={p.name} />
               </Link>
               <div className="flex flex-1 flex-col gap-1 p-3">
                 <Link to="/shop/$code/product/$id" params={{ code, id: p.id }}>
