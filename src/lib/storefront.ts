@@ -77,13 +77,21 @@ export function useStoreProducts(businessId: string | undefined) {
     queryKey: ["store-products", businessId],
     enabled: !!businessId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("storefront_products")
-        .select("*")
-        .eq("business_id", businessId!)
-        .order("name");
-      if (error) throw error;
-      return data as unknown as StoreProduct[];
+      const all: StoreProduct[] = [];
+      const size = 1000;
+      for (let from = 0; ; from += size) {
+        const { data, error } = await supabase
+          .from("storefront_products")
+          .select("*")
+          .eq("business_id", businessId!)
+          .order("name")
+          .order("id")
+          .range(from, from + size - 1);
+        if (error) throw error;
+        all.push(...((data ?? []) as unknown as StoreProduct[]));
+        if (!data || data.length < size) break;
+      }
+      return all;
     },
   });
 }
