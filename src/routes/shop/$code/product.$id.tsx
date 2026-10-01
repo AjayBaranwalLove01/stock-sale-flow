@@ -1,14 +1,13 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
-import { StoreImage } from "@/components/StoreImage";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, ImageOff, ShoppingCart } from "lucide-react";
+import { ArrowLeft, ShoppingCart } from "lucide-react";
 import { inr } from "@/lib/format";
 import { useCart, useStoreBusiness, useStoreProducts } from "@/lib/storefront";
+import { useGallery } from "@/lib/images";
+import { ProductImageGallery, GalleryItem } from "@/components/ProductImageGallery";
 
 export const Route = createFileRoute("/shop/$code/product/$id")({
   head: () => ({
@@ -30,24 +29,22 @@ function ProductPage() {
   const { data: products, isLoading } = useStoreProducts(business?.id);
   const cart = useCart(code);
   const product = (products ?? []).find((p) => p.id === id);
-  const [gallery, setGallery] = useState<string[]>([]);
-  const [active, setActive] = useState(0);
-  useEffect(() => {
-    let off = false;
-    setActive(0);
-    supabase
-      .from("catalog_images")
-      .select("image_md, image_lg, sort_order")
-      .eq("entity_type", "product")
-      .eq("entity_id", id)
-      .order("sort_order")
-      .then(({ data }) => {
-        if (!off) setGallery((data ?? []).map((r) => r.image_lg || r.image_md));
+  const { data: galleryImages } = useGallery("product", id);
+
+  const images = useMemo<GalleryItem[]>(() => {
+    const list: GalleryItem[] = [];
+    if (galleryImages && galleryImages.length > 0) {
+      list.push(...galleryImages);
+    }
+    if (product?.image_lg || product?.image_md || product?.image_sm) {
+      list.unshift({
+        sm: product.image_sm,
+        md: product.image_md,
+        lg: product.image_lg,
       });
-    return () => {
-      off = true;
-    };
-  }, [id]);
+    }
+    return list;
+  }, [galleryImages, product]);
 
   if (isLoading) {
     return <p className="py-16 text-center text-sm text-muted-foreground">Loading…</p>;
@@ -74,31 +71,8 @@ function ProductPage() {
         </Link>
       </Button>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-3">
-          <Card className="flex aspect-square items-center justify-center overflow-hidden bg-muted p-0">
-            <StoreImage
-              path={gallery[active] ?? product.image_lg ?? product.image_md}
-              alt={product.name}
-              iconClass="size-10"
-            />
-          </Card>
-          {gallery.length > 1 && (
-            <div className="flex flex-wrap gap-2">
-              {gallery.map((g, i) => (
-                <button
-                  key={g + i}
-                  type="button"
-                  onClick={() => setActive(i)}
-                  aria-label={`Show photo ${i + 1}`}
-                  className={`size-16 overflow-hidden rounded-md border-2 bg-muted ${i === active ? "border-primary" : "border-transparent"}`}
-                >
-                  <StoreImage path={g} alt={`${product.name} photo ${i + 1}`} iconClass="size-5" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+      <div className="grid gap-8 lg:gap-12 md:grid-cols-2 items-start">
+        <ProductImageGallery images={images} productName={product.name} />
 
         <div className="space-y-4">
           <div>

@@ -47,17 +47,20 @@ export function useGodown() {
 
 export function useWarehouses(activeOnly = false) {
   return useQuery({
-    queryKey: ["warehouses"],
+    queryKey: ["warehouses", activeOnly ? "active" : "all"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("warehouses")
         .select("*")
         .order("is_default", { ascending: false })
         .order("name");
+      if (activeOnly) {
+        q = q.eq("is_active", true);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return data as unknown as Warehouse[];
     },
-    select: (rows) => (activeOnly ? rows.filter((w) => w.is_active) : rows),
   });
 }
 

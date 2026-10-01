@@ -48,42 +48,38 @@ interface OpeningStockDialogProps {
   onSuccess?: () => void;
 }
 
-export function OpeningStockDialog({
+export function OpeningStockDialog(props: OpeningStockDialogProps) {
+  if (!props.open || !props.product) return null;
+  return <OpeningStockDialogInner {...props} product={props.product} />;
+}
+
+function OpeningStockDialogInner({
   product,
   open,
   onOpenChange,
   onSuccess,
-}: OpeningStockDialogProps) {
+}: OpeningStockDialogProps & { product: OpeningStockProduct }) {
   const qc = useQueryClient();
   const { data: warehouses = [] } = useWarehouses(true);
 
   const [isLocationWise, setIsLocationWise] = useState(false);
-  const [productLevelQty, setProductLevelQty] = useState("0");
+  const [productLevelQty, setProductLevelQty] = useState(String(product.opening_stock ?? 0));
   const [warehouseQtys, setWarehouseQtys] = useState<Record<string, string>>({});
   const [remarks, setRemarks] = useState("");
+  const [synced, setSynced] = useState(false);
 
   // Query existing opening stock for the active product
   const {
     data: openingData,
     isLoading: isLoadingOpening,
-    refetch,
   } = useQuery({
-    queryKey: ["product_opening_stock", product?.id],
-    enabled: open && !!product?.id,
-    queryFn: () => getProductOpeningStock(product!.id),
+    queryKey: ["product_opening_stock", product.id],
+    queryFn: () => getProductOpeningStock(product.id),
   });
 
-  // Populate state when product or opening stock data loads
+  // Populate state when opening stock data loads (only once)
   useEffect(() => {
-    if (!open || !product) {
-      setWarehouseQtys({});
-      setProductLevelQty("0");
-      setRemarks("");
-      setIsLocationWise(false);
-      return;
-    }
-
-    if (openingData) {
+    if (!synced && openingData) {
       const hasWarehousesWithStock = openingData.records.some(
         (r) => !!r.warehouse_id && Number(r.qty_in) > 0,
       );
@@ -101,16 +97,12 @@ export function OpeningStockDialog({
         : String(product.opening_stock ?? 0);
       setProductLevelQty(fallbackGlobal);
 
-      // If location-wise records exist or warehouses are present and user has set them
       if (hasWarehousesWithStock) {
         setIsLocationWise(true);
-      } else {
-        setIsLocationWise(false);
       }
-    } else {
-      setProductLevelQty(String(product.opening_stock ?? 0));
+      setSynced(true);
     }
-  }, [open, product, openingData, warehouses]);
+  }, [synced, openingData, product.opening_stock, warehouses]);
 
   // Compute calculated total
   const calculatedTotal = useMemo(() => {
@@ -123,12 +115,10 @@ export function OpeningStockDialog({
     return Math.max(0, Number(productLevelQty || 0));
   }, [isLocationWise, warehouseQtys, productLevelQty]);
 
-  const previousTotal = openingData?.total ?? Number(product?.opening_stock ?? 0);
+  const previousTotal = openingData?.total ?? Number(product.opening_stock ?? 0);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!product) return;
-
       const locQuantities = warehouses.map((w) => ({
         warehouseId: w.id,
         warehouseName: w.name,
@@ -149,12 +139,12 @@ export function OpeningStockDialog({
     },
     onSuccess: (res) => {
       toast.success(
-        `Opening stock for "${product?.name}" updated to ${num(res?.total ?? 0)} ${product?.unit || "units"}`,
+        `Opening stock for "${product.name}" updated to ${num(res?.total ?? 0)} ${product.unit || "units"}`,
       );
       void qc.invalidateQueries({ queryKey: ["products"] });
       void qc.invalidateQueries({ queryKey: ["inventory_txns"] });
       void qc.invalidateQueries({ queryKey: ["warehouse_stock"] });
-      void qc.invalidateQueries({ queryKey: ["product_opening_stock", product?.id] });
+      void qc.invalidateQueries({ queryKey: ["product_opening_stock", product.id] });
       onOpenChange(false);
       onSuccess?.();
     },
@@ -162,8 +152,6 @@ export function OpeningStockDialog({
       toast.error(err.message || "Failed to update opening stock");
     },
   });
-
-  if (!product) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
