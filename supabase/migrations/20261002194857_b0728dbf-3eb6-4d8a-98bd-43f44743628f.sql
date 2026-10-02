@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.get_business_type(uuid) FROM PUBLIC, anon, authenticated;
