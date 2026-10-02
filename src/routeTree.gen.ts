@@ -39,6 +39,7 @@ import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authentica
 import { Route as AuthenticatedTransfersRouteImport } from './routes/_authenticated/transfers'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as AuthenticatedWarehousesRouteImport } from './routes/_authenticated/warehouses'
+import { Route as InvoiceTokenRouteImport } from './routes/invoice.$token'
 import { Route as ShopIndexRouteImport } from './routes/shop/index'
 import { Route as ShopCodeRouteRouteImport } from './routes/shop/$code/route'
 import { Route as ShopCodeIndexRouteImport } from './routes/shop/$code/index'
@@ -198,6 +199,11 @@ const AuthenticatedWarehousesRoute = AuthenticatedWarehousesRouteImport.update({
   path: '/warehouses',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const InvoiceTokenRoute = InvoiceTokenRouteImport.update({
+  id: '/invoice/$token',
+  path: '/invoice/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShopIndexRoute = ShopIndexRouteImport.update({
   id: '/shop/',
   path: '/shop/',
@@ -265,6 +271,7 @@ export interface FileRoutesByFullPath {
   '/transfers': typeof AuthenticatedTransfersRoute
   '/users': typeof AuthenticatedUsersRoute
   '/warehouses': typeof AuthenticatedWarehousesRoute
+  '/invoice/$token': typeof InvoiceTokenRoute
   '/shop/': typeof ShopIndexRoute
   '/shop/$code/cart': typeof ShopCodeCartRoute
   '/shop/$code/checkout': typeof ShopCodeCheckoutRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByTo {
   '/transfers': typeof AuthenticatedTransfersRoute
   '/users': typeof AuthenticatedUsersRoute
   '/warehouses': typeof AuthenticatedWarehousesRoute
+  '/invoice/$token': typeof InvoiceTokenRoute
   '/shop': typeof ShopIndexRoute
   '/shop/$code/cart': typeof ShopCodeCartRoute
   '/shop/$code/checkout': typeof ShopCodeCheckoutRoute
@@ -342,6 +350,7 @@ export interface FileRoutesById {
   '/_authenticated/transfers': typeof AuthenticatedTransfersRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/_authenticated/warehouses': typeof AuthenticatedWarehousesRoute
+  '/invoice/$token': typeof InvoiceTokenRoute
   '/shop/': typeof ShopIndexRoute
   '/shop/$code/cart': typeof ShopCodeCartRoute
   '/shop/$code/checkout': typeof ShopCodeCheckoutRoute
@@ -382,6 +391,7 @@ export interface FileRouteTypes {
     | '/transfers'
     | '/users'
     | '/warehouses'
+    | '/invoice/$token'
     | '/shop/'
     | '/shop/$code/cart'
     | '/shop/$code/checkout'
@@ -419,6 +429,7 @@ export interface FileRouteTypes {
     | '/transfers'
     | '/users'
     | '/warehouses'
+    | '/invoice/$token'
     | '/shop'
     | '/shop/$code/cart'
     | '/shop/$code/checkout'
@@ -458,6 +469,7 @@ export interface FileRouteTypes {
     | '/_authenticated/transfers'
     | '/_authenticated/users'
     | '/_authenticated/warehouses'
+    | '/invoice/$token'
     | '/shop/'
     | '/shop/$code/cart'
     | '/shop/$code/checkout'
@@ -473,6 +485,7 @@ export interface RootRouteChildren {
   DisplayRoute: typeof DisplayRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ShopCodeRouteRoute: typeof ShopCodeRouteRouteWithChildren
+  InvoiceTokenRoute: typeof InvoiceTokenRoute
   ShopIndexRoute: typeof ShopIndexRoute
 }
 
@@ -688,6 +701,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWarehousesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/invoice/$token': {
+      id: '/invoice/$token'
+      path: '/invoice/$token'
+      fullPath: '/invoice/$token'
+      preLoaderRoute: typeof InvoiceTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shop/': {
       id: '/shop/'
       path: '/shop'
@@ -826,6 +846,7 @@ const rootRouteChildren: RootRouteChildren = {
   DisplayRoute: DisplayRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ShopCodeRouteRoute: ShopCodeRouteRouteWithChildren,
+  InvoiceTokenRoute: InvoiceTokenRoute,
   ShopIndexRoute: ShopIndexRoute,
 }
 export const routeTree = rootRouteImport

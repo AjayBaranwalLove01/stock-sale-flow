@@ -30,6 +30,8 @@ import {
   saveProductOpeningStock,
 } from "@/lib/opening-stock";
 import { num } from "@/lib/format";
+import { useActiveBusiness } from "@/hooks/useTenant";
+import { isMedicalBusiness } from "@/lib/businessTypes";
 
 export interface OpeningStockProduct {
   id: string;
@@ -37,8 +39,10 @@ export interface OpeningStockProduct {
   sku: string;
   unit?: string;
   purchase_price?: number;
+  selling_price?: number;
   opening_stock?: number;
   current_stock?: number;
+  has_batches?: boolean;
 }
 
 interface OpeningStockDialogProps {
@@ -61,10 +65,18 @@ function OpeningStockDialogInner({
 }: OpeningStockDialogProps & { product: OpeningStockProduct }) {
   const qc = useQueryClient();
   const { data: warehouses = [] } = useWarehouses(true);
+  const { data: activeBiz } = useActiveBusiness();
+  const isMedical = isMedicalBusiness(activeBiz?.business_type);
+  const showBatchInputs = isMedical || product.has_batches;
 
   const [isLocationWise, setIsLocationWise] = useState(false);
   const [productLevelQty, setProductLevelQty] = useState(String(product.opening_stock ?? 0));
   const [warehouseQtys, setWarehouseQtys] = useState<Record<string, string>>({});
+  const [batchNumber, setBatchNumber] = useState("");
+  const [mfgDate, setMfgDate] = useState("");
+  const [expDate, setExpDate] = useState("");
+  const [batchMrp, setBatchMrp] = useState(String(product.selling_price ?? ""));
+  const [batchSellingPrice, setBatchSellingPrice] = useState(String(product.selling_price ?? ""));
   const [remarks, setRemarks] = useState("");
   const [synced, setSynced] = useState(false);
 
@@ -135,6 +147,16 @@ function OpeningStockDialogInner({
         locationQuantities: locQuantities,
         productLevelQuantity: Math.max(0, Number(productLevelQty || 0)),
         remarks,
+        batchDetails:
+          showBatchInputs && batchNumber.trim()
+            ? {
+                batchNumber: batchNumber.trim(),
+                manufacturingDate: mfgDate || undefined,
+                expiryDate: expDate || undefined,
+                mrp: Number(batchMrp) || undefined,
+                sellingPrice: Number(batchSellingPrice) || undefined,
+              }
+            : undefined,
       });
     },
     onSuccess: (res) => {
@@ -144,6 +166,7 @@ function OpeningStockDialogInner({
       void qc.invalidateQueries({ queryKey: ["products"] });
       void qc.invalidateQueries({ queryKey: ["inventory_txns"] });
       void qc.invalidateQueries({ queryKey: ["warehouse_stock"] });
+      void qc.invalidateQueries({ queryKey: ["product_batches"] });
       void qc.invalidateQueries({ queryKey: ["product_opening_stock", product.id] });
       onOpenChange(false);
       onSuccess?.();
@@ -301,6 +324,56 @@ function OpeningStockDialogInner({
                 <p className="text-xs text-muted-foreground">
                   Applies globally as base opening stock for this product.
                 </p>
+              </div>
+            )}
+
+            {showBatchInputs && (
+              <div className="rounded-md border p-3 bg-muted/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-primary">
+                    Batch / Lot Information (Optional)
+                  </span>
+                  <Badge variant="outline" className="text-[10px]">Medical / Batch</Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Batch Number</Label>
+                    <Input
+                      className="h-8 text-xs font-mono"
+                      placeholder="e.g. BATCH-01"
+                      value={batchNumber}
+                      onChange={(e) => setBatchNumber(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Expiry Date</Label>
+                    <Input
+                      type="date"
+                      className="h-8 text-xs"
+                      value={expDate}
+                      onChange={(e) => setExpDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Manufacturing Date</Label>
+                    <Input
+                      type="date"
+                      className="h-8 text-xs"
+                      value={mfgDate}
+                      onChange={(e) => setMfgDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Selling Price / MRP</Label>
+                    <Input
+                      type="number"
+                      className="h-8 text-xs"
+                      placeholder="MRP"
+                      value={batchSellingPrice}
+                      onChange={(e) => setBatchSellingPrice(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
             )}
 

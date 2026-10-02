@@ -16,9 +16,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Download, TrendingUp, Package, IndianRupee, Percent } from "lucide-react";
+import { Download, TrendingUp, Package, IndianRupee, Percent, ShieldAlert, CalendarClock } from "lucide-react";
 import { inr, num, dateFmt, downloadCsv } from "@/lib/format";
 import { useProducts } from "@/lib/queries";
+import { useActiveBusiness } from "@/hooks/useTenant";
+import { isMedicalBusiness } from "@/lib/businessTypes";
+import { useAllBatches, getExpiryCategory, getDaysUntilExpiry, type ProductBatch } from "@/lib/batches";
+import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({
@@ -37,6 +41,12 @@ function iso(d: Date) {
 }
 
 function ReportsPage() {
+  const { data: activeBiz } = useActiveBusiness();
+  const isMedical = isMedicalBusiness(activeBiz?.business_type);
+  const { data: batchData } = useAllBatches();
+  const batches = (batchData ?? []) as ProductBatch[];
+  const [batchFilter, setBatchFilter] = useState<"all" | "expired" | "d30" | "d60" | "d90">("all");
+
   const today = new Date();
   const start = new Date(today.getTime() - 29 * 864e5);
   const [from, setFrom] = useState(iso(start));
@@ -83,6 +93,7 @@ function ReportsPage() {
     selling_price: number;
     unit: string;
     expiry_date: string | null;
+    active_formulation?: string | null;
   }[];
 
   const s = sales ?? [];
@@ -132,6 +143,9 @@ function ReportsPage() {
           <TabsTrigger value="purchases">Purchases</TabsTrigger>
           <TabsTrigger value="gst">GST Summary</TabsTrigger>
           <TabsTrigger value="stock">Stock</TabsTrigger>
+          {(isMedical || batches.length > 0) && (
+            <TabsTrigger value="batches">Batch Expiry</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="sales" className="mt-4">
@@ -175,7 +189,7 @@ function ReportsPage() {
                   <TableBody>
                     {s.map((r) => (
                       <TableRow key={r.id}>
-                        <TableCell className="font-medium">{r.invoice_no}</TableCell>
+                        <TableCell className="font-medium font-mono">{r.invoice_no}</TableCell>
                         <TableCell className="text-sm">{dateFmt(r.invoice_date)}</TableCell>
                         <TableCell className="text-sm">{r.customer_name}</TableCell>
                         <TableCell className="tabular text-right">{inr(r.taxable_amount)}</TableCell>
@@ -281,6 +295,7 @@ function ReportsPage() {
                   stock.map((r) => ({
                     SKU: r.sku,
                     Product: r.name,
+                    ActiveFormulation: r.active_formulation ?? "",
                     Stock: r.current_stock,
                     Unit: r.unit,
                     MinStock: r.min_stock,
@@ -296,6 +311,7 @@ function ReportsPage() {
                   <TableRow>
                     <TableHead>SKU</TableHead>
                     <TableHead>Product</TableHead>
+                    {isMedical && <TableHead>Active Formulation</TableHead>}
                     <TableHead className="text-right">Stock</TableHead>
                     <TableHead className="text-right">Min</TableHead>
                     <TableHead className="text-right">Cost Value</TableHead>
@@ -307,6 +323,17 @@ function ReportsPage() {
                     <TableRow key={r.id}>
                       <TableCell className="text-sm">{r.sku}</TableCell>
                       <TableCell className="text-sm font-medium">{r.name}</TableCell>
+                      {isMedical && (
+                        <TableCell className="text-sm text-muted-foreground">
+                          {r.active_formulation ? (
+                            <Badge variant="outline" className="font-normal text-xs">
+                              {r.active_formulation}
+                            </Badge>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell
                         className={`tabular text-right ${Number(r.current_stock) <= Number(r.min_stock) ? "font-semibold text-destructive" : ""}`}
                       >
@@ -324,6 +351,183 @@ function ReportsPage() {
             </div>
           </Card>
         </TabsContent>
+
+        {/* Tab 5: Batches & Expiry Report */}
+        {(isMedical || batches.length > 0) && (
+          <TabsContent value="batches" className="mt-4">
+            <Card>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
+                <div className="flex items-center gap-1 rounded-md border p-1 bg-muted/20">
+                  <Button
+                    variant={batchFilter === "all" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setBatchFilter("all")}
+                  >
+                    All Batches ({batches.length})
+                  </Button>
+                  <Button
+                    variant={batchFilter === "expired" ? "destructive" : "ghost"}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setBatchFilter("expired")}
+                  >
+                    Expired ({batches.filter((b) => getExpiryCategory(b.expiry_date) === "expired").length})
+                  </Button>
+                  <Button
+                    variant={batchFilter === "d30" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setBatchFilter("d30")}
+                  >
+                    ≤ 30 Days ({batches.filter((b) => getExpiryCategory(b.expiry_date) === "d30").length})
+                  </Button>
+                  <Button
+                    variant={batchFilter === "d60" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setBatchFilter("d60")}
+                  >
+                    ≤ 60 Days ({batches.filter((b) => ["d30", "d60"].includes(getExpiryCategory(b.expiry_date))).length})
+                  </Button>
+                  <Button
+                    variant={batchFilter === "d90" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setBatchFilter("d90")}
+                  >
+                    ≤ 90 Days ({batches.filter((b) => ["d30", "d60", "d90"].includes(getExpiryCategory(b.expiry_date))).length})
+                  </Button>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    downloadCsv(
+                      "batch-expiry-report.csv",
+                      batches.map((b) => ({
+                        BatchNumber: b.batch_number,
+                        Product: b.products?.name ?? "",
+                        SKU: b.products?.sku ?? "",
+                        ActiveFormulation: b.products?.active_formulation ?? "",
+                        ExpiryDate: b.expiry_date ?? "",
+                        DaysToExpiry: getDaysUntilExpiry(b.expiry_date) ?? "",
+                        Status: b.status,
+                        Stock: b.quantity,
+                        PurchasePrice: b.purchase_price,
+                        MRP: b.mrp,
+                        CostValue: Number(b.quantity) * Number(b.purchase_price),
+                      })),
+                    )
+                  }
+                >
+                  <Download className="mr-1.5 size-4" /> Export CSV
+                </Button>
+              </div>
+
+              <div className="max-h-[520px] overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Batch No</TableHead>
+                      <TableHead>Product</TableHead>
+                      {isMedical && <TableHead>Active Formulation</TableHead>}
+                      <TableHead>Expiry Date</TableHead>
+                      <TableHead className="text-right">Quantity</TableHead>
+                      <TableHead className="text-right">Purchase Price</TableHead>
+                      <TableHead className="text-right">Cost Value</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {batches
+                      .filter((b) => {
+                        if (batchFilter === "expired")
+                          return getExpiryCategory(b.expiry_date) === "expired";
+                        if (batchFilter === "d30")
+                          return getExpiryCategory(b.expiry_date) === "d30";
+                        if (batchFilter === "d60")
+                          return ["d30", "d60"].includes(getExpiryCategory(b.expiry_date));
+                        if (batchFilter === "d90")
+                          return ["d30", "d60", "d90"].includes(
+                            getExpiryCategory(b.expiry_date),
+                          );
+                        return true;
+                      })
+                      .map((b) => {
+                        const days = getDaysUntilExpiry(b.expiry_date);
+                        const isExpired = days !== null && days < 0;
+                        const isNearExpiry = days !== null && days >= 0 && days <= 60;
+                        return (
+                          <TableRow key={b.id}>
+                            <TableCell className="font-semibold text-sm">{b.batch_number}</TableCell>
+                            <TableCell className="text-sm">
+                              <div>{b.products?.name ?? "—"}</div>
+                              <div className="text-xs text-muted-foreground">{b.products?.sku}</div>
+                            </TableCell>
+                            {isMedical && (
+                              <TableCell className="text-sm text-muted-foreground">
+                                {b.products?.active_formulation ? (
+                                  <Badge variant="outline" className="font-normal text-xs">
+                                    {b.products.active_formulation}
+                                  </Badge>
+                                ) : (
+                                  "—"
+                                )}
+                              </TableCell>
+                            )}
+                            <TableCell>
+                              {b.expiry_date ? (
+                                <div>
+                                  <Badge
+                                    variant={
+                                      isExpired
+                                        ? "destructive"
+                                        : isNearExpiry
+                                          ? "outline"
+                                          : "secondary"
+                                    }
+                                    className="font-mono text-xs"
+                                  >
+                                    {b.expiry_date}
+                                  </Badge>
+                                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                                    {days !== null
+                                      ? days < 0
+                                        ? `Expired ${Math.abs(days)}d ago`
+                                        : `${days} days left`
+                                      : ""}
+                                  </div>
+                                </div>
+                              ) : (
+                                "—"
+                              )}
+                            </TableCell>
+                            <TableCell className="tabular text-right">
+                              {num(b.quantity)} {b.products?.unit ?? "pcs"}
+                            </TableCell>
+                            <TableCell className="tabular text-right">{inr(b.purchase_price)}</TableCell>
+                            <TableCell className="tabular text-right font-medium">
+                              {inr(Number(b.quantity) * Number(b.purchase_price))}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={isExpired || b.status === "expired" ? "destructive" : "secondary"}
+                                className="capitalize text-xs"
+                              >
+                                {isExpired && b.status === "active" ? "Expired" : b.status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

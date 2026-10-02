@@ -32,7 +32,9 @@ import { LocationSelector } from "@/components/LocationSelector";
 import { Search, Trash2, Plus, Minus, Receipt, ScanLine, Camera, Pencil, ShieldCheck, UserPlus } from "lucide-react";
 import { useCategories, useCustomers, useProducts, useSales, useSettings } from "@/lib/queries";
 import { inr, dateTimeFmt, PAYMENT_METHODS } from "@/lib/format";
-import { useEnabledFeatures } from "@/hooks/useTenant";
+import { useActiveBusiness, useEnabledFeatures } from "@/hooks/useTenant";
+import { isMedicalBusiness } from "@/lib/businessTypes";
+import { useAllBatches, getExpiryCategory, getDaysUntilExpiry, type ProductBatch } from "@/lib/batches";
 import { useAuth } from "@/hooks/useAuth";
 import { Thumb } from "@/components/ImagePicker";
 import { BarcodeInput, BarcodeScannerDialog } from "@/components/BarcodeScanner";
@@ -41,6 +43,7 @@ import { Link } from "@tanstack/react-router";
 import { PostSaleDialog, ReceiptActions } from "@/components/ReceiptPrint";
 import { EditInvoiceDialog } from "@/components/EditInvoiceDialog";
 import { QuickAddCustomerDialog } from "@/components/QuickAddCustomerDialog";
+import { DeleteInvoiceDialog, type DeleteInvoiceTarget } from "@/components/DeleteInvoiceDialog";
 
 
 export const Route = createFileRoute("/_authenticated/sales")({
@@ -66,17 +69,24 @@ type Product = {
   current_stock: number;
   unit: string;
   image_md?: string | null;
+  active_formulation?: string | null;
+  has_batches?: boolean;
 };
-
 
 type Line = {
   product_id: string;
   name: string;
+  sku?: string;
   rate: number;
   quantity: number;
   discount: number;
   gst_rate: number;
   stock: number;
+  batch_id?: string | null;
+  batch_number?: string | null;
+  expiry_date?: string | null;
+  active_formulation?: string | null;
+  has_batches?: boolean;
 };
 
 function SalesPage() {
@@ -107,6 +117,11 @@ function Pos() {
   const { data: settings } = useSettings();
   const list = (products ?? []) as unknown as Product[];
 
+  const { data: activeBusiness } = useActiveBusiness();
+  const isMedical = isMedicalBusiness(activeBusiness?.business_type);
+  const { data: batchData } = useAllBatches();
+  const allBatches = (batchData ?? []) as ProductBatch[];
+
   const [cat, setCat] = useState("all");
   const [q, setQ] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
@@ -133,7 +148,9 @@ function Pos() {
       list.filter(
         (p) =>
           (cat === "all" || p.category_id === cat) &&
-          [p.name, p.sku, p.barcode].some((v) => (v ?? "").toLowerCase().includes(q.toLowerCase())),
+          [p.name, p.sku, p.barcode, p.active_formulation].some((v) =>
+            (v ?? "").toLowerCase().includes(q.toLowerCase()),
+          ),
       ),
     [list, cat, q],
   );
@@ -143,13 +160,38 @@ function Pos() {
       toast.error(`Out of stock — ${p.name}`);
       return;
     }
+
+    // Filter active batches for this product
+    const productBatches = allBatches.filter(
+      (b) => b.product_id === p.id && b.status === "active",
+    );
+
+    // FEFO: Sort active batches by earliest expiry first, excluding expired batches
+    const validBatches = productBatches
+      .filter(
+        (b) =>
+          getExpiryCategory(b.expiry_date) !== "expired" && Number(b.quantity) > 0,
+      )
+      .sort((a, b) => {
+        if (!a.expiry_date) return 1;
+        if (!b.expiry_date) return -1;
+        return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime();
+      });
+
+    const fefoBatch = validBatches[0];
+    const hasBatches = (p.has_batches || isMedical) && productBatches.length > 0;
+    const maxStock = fefoBatch ? Number(fefoBatch.quantity) : Number(p.current_stock);
+
     setLines((prev) => {
-      const i = prev.findIndex((l) => l.product_id === p.id);
+      // If product has batch, match both product_id and batch_id
+      const i = prev.findIndex(
+        (l) => l.product_id === p.id && (!fefoBatch || l.batch_id === fefoBatch.id),
+      );
       if (i >= 0) {
         const line = prev[i]!;
-        if (line.quantity + 1 > Number(p.current_stock)) {
+        if (line.quantity + 1 > maxStock) {
           toast.error("Insufficient stock", {
-            description: `${p.name} — available ${Number(p.current_stock)}, requested ${line.quantity + 1}`,
+            description: `${p.name} ${fefoBatch ? `(Batch ${fefoBatch.batch_number})` : ""} — available ${maxStock}, requested ${line.quantity + 1}`,
           });
           return prev;
         }
@@ -162,11 +204,17 @@ function Pos() {
         {
           product_id: p.id,
           name: p.name,
-          rate: Number(p.selling_price),
+          sku: p.sku,
+          rate: fefoBatch?.selling_price ? Number(fefoBatch.selling_price) : Number(p.selling_price),
           quantity: 1,
           discount: 0,
           gst_rate: Number(p.gst_rate),
-          stock: Number(p.current_stock),
+          stock: maxStock,
+          batch_id: fefoBatch?.id || null,
+          batch_number: fefoBatch?.batch_number || null,
+          expiry_date: fefoBatch?.expiry_date || null,
+          active_formulation: p.active_formulation || null,
+          has_batches: hasBatches,
         },
       ];
     });
@@ -197,6 +245,8 @@ function Pos() {
         gst_rate: Number(p.gst_rate),
         current_stock: Number(p.current_stock),
         unit: p.unit,
+        active_formulation: (p as any).active_formulation,
+        has_batches: (p as any).has_batches,
       });
       scannedCodes.current = Array.from(new Set([...scannedCodes.current, p.barcode]));
       setScanMsg(`${p.name} added · stock ${p.current_stock} ${p.unit}`);
@@ -227,12 +277,25 @@ function Pos() {
   const create = useMutation({
     mutationFn: async () => {
       if (!lines.length) throw new Error("Add at least one product");
+
+      // Validate expired batches (Requirement #9)
+      for (const l of lines) {
+        if (l.expiry_date && getExpiryCategory(l.expiry_date) === "expired") {
+          throw new Error(
+            `Cannot sell expired batch ${l.batch_number} for ${l.name}. Please select an active batch.`,
+          );
+        }
+      }
+
       const items = lines.map((l) => ({
         product_id: l.product_id,
         quantity: l.quantity,
         rate: l.rate,
         discount: l.discount,
         gst_rate: l.gst_rate,
+        ...(l.batch_id ? { batch_id: l.batch_id } : {}),
+        ...(l.batch_number ? { batch_number: l.batch_number } : {}),
+        ...(l.expiry_date ? { expiry_date: l.expiry_date } : {}),
       }));
 
       if (isCredit) {
@@ -366,6 +429,9 @@ function Pos() {
                 >
                   <Thumb path={p.image_md} alt={p.name} className="mb-2 h-20 w-full" />
                   <p className="line-clamp-2 text-sm font-medium">{p.name}</p>
+                  {p.active_formulation && (
+                    <p className="line-clamp-1 text-[10px] text-primary font-normal">{p.active_formulation}</p>
+                  )}
                   <p className="mt-0.5 text-[11px] text-muted-foreground">{p.sku}</p>
 
                   <div className="mt-2 flex items-center justify-between">
@@ -382,6 +448,13 @@ function Pos() {
       </Card>
 
       <Card className="flex flex-col p-3">
+        <div className="flex items-center justify-between pb-2 border-b mb-2">
+          <span className="text-xs font-semibold text-foreground">New Invoice</span>
+          <Badge variant="outline" className="text-[11px] font-mono py-0 px-2 border-primary/30 text-primary bg-primary/5">
+            Auto Sequential (e.g. INV-000001)
+          </Badge>
+        </div>
+
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label>Customer</Label>
@@ -443,63 +516,143 @@ function Pos() {
             <p className="py-8 text-center text-sm text-muted-foreground">Cart is empty</p>
           ) : (
             <div className="space-y-2 pr-2">
-              {lines.map((l, i) => (
-                <div key={l.product_id} className="rounded-md border p-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium">{l.name}</p>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-6"
-                      onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </div>
-                  <div className="mt-2 flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="size-7"
-                      onClick={() => setLine(i, { quantity: Math.max(1, l.quantity - 1) })}
-                    >
-                      <Minus className="size-3" />
-                    </Button>
-                    <Input
-                      className="h-7 w-14 text-center"
-                      value={l.quantity}
-                      onChange={(e) => {
-                        const qty = Number(e.target.value) || 0;
-                        if (qty > l.stock) {
-                          toast.error("Insufficient stock", {
-                            description: `${l.name} — available ${l.stock}, requested ${qty}`,
-                          });
-                          return;
+              {lines.map((l, i) => {
+                const productBatches = allBatches.filter(
+                  (b) => b.product_id === l.product_id,
+                );
+                const isBatchExpired =
+                  l.expiry_date && getExpiryCategory(l.expiry_date) === "expired";
+
+                return (
+                  <div
+                    key={`${l.product_id}-${l.batch_id || "nobatch"}-${i}`}
+                    className={`rounded-md border p-2 ${isBatchExpired ? "border-destructive/60 bg-destructive/5" : ""}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium">{l.name}</p>
+                        {l.active_formulation && (
+                          <p className="text-[10px] text-muted-foreground">
+                            {l.active_formulation}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 text-muted-foreground hover:text-destructive"
+                        onClick={() => setLines((p) => p.filter((_, idx) => idx !== i))}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+
+                    {/* Batch selection dropdown if product has batches or is medical */}
+                    {(productBatches.length > 0 || l.batch_id) && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                        <span className="text-[11px] text-muted-foreground">Batch:</span>
+                        <Select
+                          value={l.batch_id || "default"}
+                          onValueChange={(bId) => {
+                            const selected = productBatches.find((b) => b.id === bId);
+                            if (selected) {
+                              const days = getDaysUntilExpiry(selected.expiry_date);
+                              if (days !== null && days < 0) {
+                                toast.warning(
+                                  `Selected Batch ${selected.batch_number} has expired!`,
+                                );
+                              }
+                              setLine(i, {
+                                batch_id: selected.id,
+                                batch_number: selected.batch_number,
+                                expiry_date: selected.expiry_date,
+                                rate: selected.selling_price
+                                  ? Number(selected.selling_price)
+                                  : l.rate,
+                                stock: Number(selected.quantity),
+                              });
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-6 w-[200px] px-2 py-0 text-[11px]">
+                            <SelectValue placeholder="Choose batch (FEFO)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {productBatches.map((b) => {
+                              const days = getDaysUntilExpiry(b.expiry_date);
+                              const isExp = days !== null && days < 0;
+                              return (
+                                <SelectItem key={b.id} value={b.id} className="text-xs">
+                                  {b.batch_number}
+                                  {b.expiry_date ? ` · Exp: ${b.expiry_date}` : ""} · {b.quantity} left
+                                  {isExp ? " [EXPIRED]" : ""}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+
+                        {isBatchExpired && (
+                          <Badge variant="destructive" className="h-5 text-[10px]">
+                            Expired
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-2 flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-7"
+                        onClick={() => setLine(i, { quantity: Math.max(1, l.quantity - 1) })}
+                      >
+                        <Minus className="size-3" />
+                      </Button>
+                      <Input
+                        className="h-7 w-14 text-center"
+                        value={l.quantity}
+                        onChange={(e) => {
+                          const qty = Number(e.target.value) || 0;
+                          if (qty > l.stock) {
+                            toast.error("Insufficient stock", {
+                              description: `${l.name} — available ${l.stock}, requested ${qty}`,
+                            });
+                            return;
+                          }
+                          setLine(i, { quantity: qty });
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-7"
+                        onClick={() =>
+                          l.quantity + 1 > l.stock
+                            ? toast.error("Insufficient stock", {
+                                description: `${l.name} — available ${l.stock}`,
+                              })
+                            : setLine(i, { quantity: l.quantity + 1 })
                         }
-                        setLine(i, { quantity: qty });
-                      }}
-                    />
-                    <Button variant="outline" size="icon" className="size-7" onClick={() =>
-                        l.quantity + 1 > l.stock
-                          ? toast.error("Insufficient stock", {
-                              description: `${l.name} — available ${l.stock}`,
-                            })
-                          : setLine(i, { quantity: l.quantity + 1 })
-                      }>
-                      <Plus className="size-3" />
-                    </Button>
-                    <Input
-                      className="h-7 flex-1"
-                      value={l.rate}
-                      onChange={(e) => setLine(i, { rate: Number(e.target.value) || 0 })}
-                    />
-                    <span className="tabular w-20 text-right text-sm font-medium">
-                      {inr(l.quantity * l.rate - l.discount)}
-                    </span>
+                      >
+                        <Plus className="size-3" />
+                      </Button>
+                      <Input
+                        className="h-7 flex-1"
+                        value={l.rate}
+                        onChange={(e) => setLine(i, { rate: Number(e.target.value) || 0 })}
+                      />
+                      <span className="tabular w-20 text-right text-sm font-medium">
+                        {inr(l.quantity * l.rate - l.discount)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      GST {l.gst_rate}% · Stock {l.stock}
+                      {l.batch_number ? ` · Lot: ${l.batch_number}` : ""}
+                    </p>
                   </div>
-                  <p className="mt-1 text-[11px] text-muted-foreground">GST {l.gst_rate}% · Stock {l.stock}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </ScrollArea>
@@ -604,6 +757,9 @@ function Pos() {
 
 type SaleRow = {
   id: string;
+  business_id?: string;
+  customer_id?: string | null;
+  access_token?: string | null;
   invoice_no: string;
   customer_name: string;
   invoice_date: string;
@@ -614,6 +770,7 @@ type SaleRow = {
   sgst: number;
   round_off: number;
   status: string;
+  customers?: { name?: string; mobile?: string | null } | null;
   sale_items: {
     id: string;
     product_name: string;
@@ -630,6 +787,7 @@ function Invoices() {
   const [q, setQ] = useState("");
   const [view, setView] = useState<SaleRow | null>(null);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+  const [deletingSale, setDeletingSale] = useState<DeleteInvoiceTarget | null>(null);
   const { data: settings } = useSettings();
   const { roles, isSuperAdmin } = useAuth();
   const isAdmin = isSuperAdmin || roles.includes("admin");
@@ -673,7 +831,7 @@ function Invoices() {
             <TableBody>
               {filtered.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.invoice_no}</TableCell>
+                  <TableCell className="font-medium font-mono">{r.invoice_no}</TableCell>
                   <TableCell className="text-sm">{dateTimeFmt(r.invoice_date)}</TableCell>
                   <TableCell className="text-sm">{r.customer_name}</TableCell>
                   <TableCell className="tabular text-right">{inr(r.grand_total)}</TableCell>
@@ -702,7 +860,43 @@ function Invoices() {
                           Edit
                         </Button>
                       )}
-                      <ReceiptActions saleId={r.id} reprint />
+                      <ReceiptActions
+                        saleId={r.id}
+                        reprint
+                        saleDetails={{
+                          invoice_no: r.invoice_no,
+                          invoice_date: r.invoice_date,
+                          grand_total: Number(r.grand_total),
+                          customer_name: r.customer_name,
+                          customer_id: r.customer_id,
+                          customer_mobile: r.customers?.mobile,
+                          business_id: r.business_id,
+                          access_token: r.access_token,
+                        }}
+                      />
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 gap-1 text-destructive/80 hover:text-destructive hover:bg-destructive/10"
+                          onClick={() =>
+                            setDeletingSale({
+                              id: r.id,
+                              invoice_no: r.invoice_no,
+                              invoice_date: r.invoice_date,
+                              customer_name: r.customer_name,
+                              customer_id: r.customer_id,
+                              grand_total: Number(r.grand_total),
+                              paid_amount: Number(r.paid_amount),
+                              business_id: r.business_id,
+                            })
+                          }
+                          title="Delete invoice (Admin only)"
+                        >
+                          <Trash2 className="size-3.5" />
+                          <span className="hidden xl:inline text-xs">Delete</span>
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -743,7 +937,15 @@ function Invoices() {
                 <TableBody>
                   {view.sale_items?.map((it) => (
                     <TableRow key={it.id}>
-                      <TableCell>{it.product_name}</TableCell>
+                      <TableCell>
+                        <div>{it.product_name}</div>
+                        {(it as any).batch_number && (
+                          <div className="text-[11px] text-muted-foreground font-mono">
+                            Lot: {(it as any).batch_number}
+                            {(it as any).expiry_date ? ` · Exp: ${(it as any).expiry_date}` : ""}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="tabular text-right">{it.quantity}</TableCell>
                       <TableCell className="tabular text-right">{inr(it.rate)}</TableCell>
                       <TableCell className="tabular text-right">{it.gst_rate}%</TableCell>
@@ -770,22 +972,59 @@ function Invoices() {
           )}
           <DialogFooter className="flex flex-row items-center justify-between w-full">
             {view && isAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
-                onClick={() => {
-                  const id = view.id;
-                  setView(null);
-                  setEditingSaleId(id);
-                }}
-              >
-                <Pencil className="size-3.5" />
-                Modify Invoice
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                  onClick={() => {
+                    const id = view.id;
+                    setView(null);
+                    setEditingSaleId(id);
+                  }}
+                >
+                  <Pencil className="size-3.5" />
+                  Modify Invoice
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => {
+                    setDeletingSale({
+                      id: view.id,
+                      invoice_no: view.invoice_no,
+                      invoice_date: view.invoice_date,
+                      customer_name: view.customer_name,
+                      customer_id: view.customer_id,
+                      grand_total: Number(view.grand_total),
+                      paid_amount: Number(view.paid_amount),
+                      business_id: view.business_id,
+                    });
+                  }}
+                >
+                  <Trash2 className="size-3.5" />
+                  Delete Invoice
+                </Button>
+              </div>
             )}
             <div className="ml-auto flex items-center gap-2">
-              {view && <ReceiptActions saleId={view.id} reprint />}
+              {view && (
+                <ReceiptActions
+                  saleId={view.id}
+                  reprint
+                  saleDetails={{
+                    invoice_no: view.invoice_no,
+                    invoice_date: view.invoice_date,
+                    grand_total: Number(view.grand_total),
+                    customer_name: view.customer_name,
+                    customer_id: view.customer_id,
+                    customer_mobile: view.customers?.mobile,
+                    business_id: view.business_id,
+                    access_token: view.access_token,
+                  }}
+                />
+              )}
             </div>
           </DialogFooter>
         </DialogContent>
@@ -795,6 +1034,16 @@ function Invoices() {
         saleId={editingSaleId}
         open={!!editingSaleId}
         onOpenChange={(o) => !o && setEditingSaleId(null)}
+      />
+
+      <DeleteInvoiceDialog
+        sale={deletingSale}
+        open={!!deletingSale}
+        onOpenChange={(o) => !o && setDeletingSale(null)}
+        onSuccess={() => {
+          setView(null);
+          setDeletingSale(null);
+        }}
       />
     </Card>
   );

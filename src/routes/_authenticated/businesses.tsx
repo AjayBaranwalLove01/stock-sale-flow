@@ -58,10 +58,20 @@ export const Route = createFileRoute("/_authenticated/businesses")({
   component: BusinessesPage,
 });
 
+const BUSINESS_TYPES = [
+  "Medical / Pharmacy",
+  "Grocery",
+  "General Store",
+  "Electronics",
+  "Clothing",
+  "Hardware",
+  "Other",
+] as const;
+
 const emptyForm = {
   name: "",
   code: "",
-  business_type: "Retail",
+  business_type: "Medical / Pharmacy",
   subdomain: "",
   address: "",
   city: "",
@@ -245,7 +255,24 @@ function BusinessesPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <Text label="Business name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
             <Text label="Business code" value={form.code} onChange={(v) => setForm({ ...form, code: v.toUpperCase() })} />
-            <Text label="Business type" value={form.business_type} onChange={(v) => setForm({ ...form, business_type: v })} />
+            <div className="space-y-1.5">
+              <Label>Business type</Label>
+              <Select
+                value={form.business_type}
+                onValueChange={(v) => setForm({ ...form, business_type: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BUSINESS_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Text
               label="Storefront subdomain"
               value={form.subdomain}
@@ -328,6 +355,24 @@ function BusinessesPage() {
               <Text label="City" value={editing.city ?? ""} onChange={(v) => setEditing({ ...editing, city: v })} />
               <Text label="State" value={editing.state ?? ""} onChange={(v) => setEditing({ ...editing, state: v })} />
               <div className="space-y-1.5">
+                <Label>Business type</Label>
+                <Select
+                  value={editing.business_type ?? "Medical / Pharmacy"}
+                  onValueChange={(v) => setEditing({ ...editing, business_type: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BUSINESS_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
                 <Label>Status</Label>
                 <Select
                   value={editing.status}
@@ -363,6 +408,7 @@ function BusinessesPage() {
                 update.mutate({
                   id: editing.id,
                   name: editing.name,
+                  business_type: editing.business_type,
                   subdomain: editing.subdomain,
                   phone: editing.phone,
                   email: editing.email,

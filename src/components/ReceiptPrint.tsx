@@ -16,10 +16,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Printer, FileText, Download, Plus, RotateCw } from "lucide-react";
+import { Printer, FileText, Download, Plus, RotateCw, MessageCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/lib/queries";
 import { useActiveBusiness } from "@/hooks/useTenant";
+import { SendWhatsAppDialog } from "@/components/SendWhatsAppDialog";
 import {
   enqueuePrintJob,
   fetchReceiptSale,
@@ -161,28 +162,90 @@ export function useSalePrinting() {
 }
 
 /** Row-level print actions for sales history / sale details. */
-export function ReceiptActions({ saleId, reprint = false }: { saleId: string; reprint?: boolean }) {
+export function ReceiptActions({
+  saleId,
+  reprint = false,
+  saleDetails,
+}: {
+  saleId: string;
+  reprint?: boolean;
+  saleDetails?: {
+    invoice_no: string;
+    invoice_date: string;
+    grand_total: number;
+    customer_name: string;
+    customer_id?: string | null | undefined;
+    customer_mobile?: string | null | undefined;
+    business_id?: string | undefined;
+    access_token?: string | null | undefined;
+  };
+}) {
   const p = useSalePrinting();
   const canReceipt = reprint ? p.can("reprint_receipt") : p.can("print_receipt");
+  const [whatsAppOpen, setWhatsAppOpen] = useState(false);
+  const [loadedSale, setLoadedSale] = useState<ReceiptSale | null>(null);
+
+  const handleOpenWhatsApp = async () => {
+    if (!saleDetails && !loadedSale) {
+      try {
+        const s = await fetchReceiptSale(saleId);
+        setLoadedSale(s);
+      } catch {
+        toast.error("Failed to load invoice details for WhatsApp");
+        return;
+      }
+    }
+    setWhatsAppOpen(true);
+  };
+
+  const activeSale = saleDetails ?? loadedSale;
 
   return (
-    <div className="flex flex-wrap justify-end gap-2">
-      {canReceipt && (
-        <Button variant="outline" size="sm" disabled={p.busy} onClick={() => void p.run(saleId, "receipt", reprint)}>
-          <Printer className="mr-1.5 size-4" /> {reprint ? "Reprint Receipt" : "Print Receipt"}
+    <>
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-[#25D366] hover:text-[#20BD5A] border-[#25D366]/40 hover:bg-[#25D366]/10"
+          onClick={() => void handleOpenWhatsApp()}
+          title="Send invoice link on WhatsApp"
+        >
+          <MessageCircle className="mr-1.5 size-4 fill-current" /> WhatsApp
         </Button>
+        {canReceipt && (
+          <Button variant="outline" size="sm" disabled={p.busy} onClick={() => void p.run(saleId, "receipt", reprint)}>
+            <Printer className="mr-1.5 size-4" /> {reprint ? "Reprint Receipt" : "Print Receipt"}
+          </Button>
+        )}
+        {p.can("print_invoice") && p.a4Enabled && (
+          <Button variant="outline" size="sm" disabled={p.busy} onClick={() => void p.run(saleId, "invoice")}>
+            <FileText className="mr-1.5 size-4" /> Print A4 Invoice
+          </Button>
+        )}
+        {p.can("download_invoice") && p.a4Enabled && (
+          <Button variant="outline" size="sm" disabled={p.busy} onClick={() => void p.run(saleId, "download")}>
+            <Download className="mr-1.5 size-4" /> Download
+          </Button>
+        )}
+      </div>
+
+      {activeSale && (
+        <SendWhatsAppDialog
+          open={whatsAppOpen}
+          onOpenChange={setWhatsAppOpen}
+          saleId={saleId}
+          invoiceNo={activeSale.invoice_no}
+          invoiceDate={activeSale.invoice_date}
+          grandTotal={Number(activeSale.grand_total)}
+          customerName={activeSale.customer_name}
+          customerId={activeSale.customer_id}
+          initialPhone={activeSale.customer_mobile}
+          businessName={p.ctx.business_name}
+          businessId={activeSale.business_id || ""}
+          accessToken={activeSale.access_token}
+        />
       )}
-      {p.can("print_invoice") && p.a4Enabled && (
-        <Button variant="outline" size="sm" disabled={p.busy} onClick={() => void p.run(saleId, "invoice")}>
-          <FileText className="mr-1.5 size-4" /> Print A4 Invoice
-        </Button>
-      )}
-      {p.can("download_invoice") && p.a4Enabled && (
-        <Button variant="outline" size="sm" disabled={p.busy} onClick={() => void p.run(saleId, "download")}>
-          <Download className="mr-1.5 size-4" /> Download
-        </Button>
-      )}
-    </div>
+    </>
   );
 }
 
@@ -202,6 +265,7 @@ export function PostSaleDialog({
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [whatsAppOpen, setWhatsAppOpen] = useState(false);
 
   // Load the saved sale once, then auto print when the business asked for it.
   if (saleId && loadedFor !== saleId) {
@@ -239,52 +303,79 @@ export function PostSaleDialog({
   };
 
   return (
-    <Dialog open={!!saleId} onOpenChange={(o) => !o && onNewSale()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Sale completed successfully</DialogTitle>
-          <DialogDescription>
-            {sale ? (
-              <>
-                Invoice No: <span className="font-medium text-foreground">{sale.invoice_no}</span> · Total:{" "}
-                <span className="font-medium text-foreground">{inr(sale.grand_total)}</span>
-              </>
-            ) : (
-              "Saving invoice…"
+    <>
+      <Dialog open={!!saleId} onOpenChange={(o) => !o && onNewSale()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sale completed successfully</DialogTitle>
+            <DialogDescription>
+              {sale ? (
+                <>
+                  Invoice No: <span className="font-semibold text-foreground font-mono">{sale.invoice_no}</span> · Total:{" "}
+                  <span className="font-medium text-foreground">{inr(sale.grand_total)}</span>
+                </>
+              ) : (
+                "Saving invoice…"
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {failed && (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+              Receipt could not be printed. The sale and inventory update remain completed — retry the print or
+              reprint it later from Invoices.
+            </p>
+          )}
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button
+              type="button"
+              className="bg-[#25D366] hover:bg-[#20BD5A] text-white gap-1.5 font-medium shadow-xs"
+              disabled={!sale || busy}
+              onClick={() => setWhatsAppOpen(true)}
+            >
+              <MessageCircle className="mr-1.5 size-4 fill-current" /> Send on WhatsApp
+            </Button>
+            {p.can("print_receipt") && (
+              <Button variant="outline" disabled={!sale || busy} onClick={() => sale && void act(() => p.printReceipt(sale))}>
+                {failed ? <RotateCw className="mr-1.5 size-4" /> : <Printer className="mr-1.5 size-4" />}
+                {failed ? "Retry Print" : "Print Receipt"}
+              </Button>
             )}
-          </DialogDescription>
-        </DialogHeader>
+            {p.can("print_invoice") && p.a4Enabled && (
+              <Button variant="outline" disabled={!sale || busy} onClick={() => sale && void act(() => p.printInvoice(sale))}>
+                <FileText className="mr-1.5 size-4" /> Print A4 Invoice
+              </Button>
+            )}
+            {p.can("download_invoice") && p.a4Enabled && (
+              <Button variant="outline" disabled={!sale || busy} onClick={() => sale && void act(() => p.downloadInvoice(sale))}>
+                <Download className="mr-1.5 size-4" /> Download Invoice
+              </Button>
+            )}
+            <Button onClick={onNewSale} variant="secondary" className="sm:col-span-2">
+              <Plus className="mr-1.5 size-4" /> New Sale
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-        {failed && (
-          <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
-            Receipt could not be printed. The sale and inventory update remain completed — retry the print or
-            reprint it later from Invoices.
-          </p>
-        )}
-
-        <div className="grid gap-2 sm:grid-cols-2">
-          {p.can("print_receipt") && (
-            <Button variant="outline" disabled={!sale || busy} onClick={() => sale && void act(() => p.printReceipt(sale))}>
-              {failed ? <RotateCw className="mr-1.5 size-4" /> : <Printer className="mr-1.5 size-4" />}
-              {failed ? "Retry Print" : "Print Receipt"}
-            </Button>
-          )}
-          {p.can("print_invoice") && p.a4Enabled && (
-            <Button variant="outline" disabled={!sale || busy} onClick={() => sale && void act(() => p.printInvoice(sale))}>
-              <FileText className="mr-1.5 size-4" /> Print A4 Invoice
-            </Button>
-          )}
-          {p.can("download_invoice") && p.a4Enabled && (
-            <Button variant="outline" disabled={!sale || busy} onClick={() => sale && void act(() => p.downloadInvoice(sale))}>
-              <Download className="mr-1.5 size-4" /> Download Invoice
-            </Button>
-          )}
-          <Button onClick={onNewSale}>
-            <Plus className="mr-1.5 size-4" /> New Sale
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      {sale && (
+        <SendWhatsAppDialog
+          open={whatsAppOpen}
+          onOpenChange={setWhatsAppOpen}
+          saleId={sale.id}
+          invoiceNo={sale.invoice_no}
+          invoiceDate={sale.invoice_date}
+          grandTotal={Number(sale.grand_total)}
+          customerName={sale.customer_name}
+          customerId={sale.customer_id}
+          initialPhone={sale.customer_mobile}
+          businessName={p.ctx.business_name}
+          businessId={sale.business_id || ""}
+          accessToken={sale.access_token}
+        />
+      )}
+    </>
   );
 }
 

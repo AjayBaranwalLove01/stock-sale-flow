@@ -61,6 +61,13 @@ export interface SaveOpeningStockParams {
   }>;
   productLevelQuantity?: number;
   remarks?: string;
+  batchDetails?: {
+    batchNumber: string;
+    manufacturingDate?: string | undefined;
+    expiryDate?: string | undefined;
+    mrp?: number | undefined;
+    sellingPrice?: number | undefined;
+  } | undefined;
 }
 
 /**
@@ -76,7 +83,47 @@ export async function saveProductOpeningStock({
   locationQuantities = [],
   productLevelQuantity = 0,
   remarks = "",
+  batchDetails,
 }: SaveOpeningStockParams): Promise<{ total: number }> {
+  // If batchDetails provided, create or locate the batch in product_batches
+  let batchId: string | null = null;
+  if (batchDetails?.batchNumber?.trim()) {
+    const bNum = batchDetails.batchNumber.trim();
+    const { data: existingBatch } = await supabase
+      .from("product_batches" as any)
+      .select("id")
+      .eq("product_id", productId)
+      .eq("batch_number", bNum)
+      .maybeSingle();
+
+    if (existingBatch && (existingBatch as any).id) {
+      batchId = (existingBatch as any).id;
+    } else {
+      const { data: newBatch, error: bErr } = await supabase
+        .from("product_batches" as any)
+        .insert({
+          product_id: productId,
+          batch_number: bNum,
+          manufacturing_date: batchDetails.manufacturingDate || null,
+          expiry_date: batchDetails.expiryDate || null,
+          purchase_price: purchasePrice || 0,
+          mrp: batchDetails.mrp || 0,
+          selling_price: batchDetails.sellingPrice || 0,
+          quantity: 0,
+          status: "active",
+        })
+        .select("id")
+        .single();
+      if (!bErr && newBatch) {
+        batchId = (newBatch as any).id;
+      }
+    }
+    await supabase
+      .from("products")
+      .update({ has_batches: true } as any)
+      .eq("id", productId);
+  }
+
   // 1. Fetch current opening records to calculate previous state and audit diff
   const { records: existingRecords, total: previousTotal } =
     await getProductOpeningStock(productId);
@@ -113,7 +160,8 @@ export async function saveProductOpeningStock({
               unit_cost: purchasePrice || 0,
               notes: noteText,
               txn_date: today,
-            })
+              ...(batchId ? { batch_id: batchId, batch_number: batchDetails?.batchNumber?.trim(), expiry_date: batchDetails?.expiryDate || null } : {}),
+            } as any)
             .eq("id", existing.id);
           if (error) throw error;
         } else {
@@ -138,7 +186,8 @@ export async function saveProductOpeningStock({
           unit_cost: purchasePrice || 0,
           notes: noteText,
           txn_date: today,
-        });
+          ...(batchId ? { batch_id: batchId, batch_number: batchDetails?.batchNumber?.trim(), expiry_date: batchDetails?.expiryDate || null } : {}),
+        } as any);
         if (error) throw error;
       }
     }
@@ -163,7 +212,8 @@ export async function saveProductOpeningStock({
             unit_cost: purchasePrice || 0,
             notes: noteText,
             txn_date: today,
-          })
+            ...(batchId ? { batch_id: batchId, batch_number: batchDetails?.batchNumber?.trim(), expiry_date: batchDetails?.expiryDate || null } : {}),
+          } as any)
           .eq("id", existingGlobal.id);
         if (error) throw error;
       } else {
@@ -186,7 +236,8 @@ export async function saveProductOpeningStock({
         unit_cost: purchasePrice || 0,
         notes: noteText,
         txn_date: today,
-      });
+        ...(batchId ? { batch_id: batchId, batch_number: batchDetails?.batchNumber?.trim(), expiry_date: batchDetails?.expiryDate || null } : {}),
+      } as any);
       if (error) throw error;
     }
   }

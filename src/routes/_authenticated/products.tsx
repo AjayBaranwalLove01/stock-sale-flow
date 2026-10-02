@@ -48,6 +48,7 @@ import {
   ExternalLink,
   Layers,
   Boxes,
+  Pill,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -87,6 +88,16 @@ import {
   useBarcode,
   validateBarcode,
 } from "@/lib/barcode";
+import {
+  isMedicalBusiness,
+  isClothingBusiness,
+  isElectronicsBusiness,
+  isGroceryBusiness,
+  type BusinessTypeFields,
+} from "@/lib/businessTypes";
+import { BusinessSpecificFields } from "@/components/BusinessSpecificFields";
+import { ProductBatchManager } from "@/components/ProductBatchManager";
+import { ProductVariantManager } from "@/components/ProductVariantManager";
 
 
 export const Route = createFileRoute("/_authenticated/products")({
@@ -111,8 +122,13 @@ const emptyProduct = {
   barcode_type: "",
   name: "",
   category_id: "",
+  subcategory: "",
   brand: "",
   description: "",
+  active_formulation: "",
+  business_type_data: {} as BusinessTypeFields,
+  has_batches: false,
+  has_variants: false,
   purchase_price: "0",
   mrp: "0",
   selling_price: "0",
@@ -203,6 +219,7 @@ function ProductsPage() {
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const barcode = useBarcode();
   const { data: activeBusiness } = useActiveBusiness();
+  const isMedical = isMedicalBusiness(activeBusiness?.business_type);
   const [scanOpen, setScanOpen] = useState(false);
   const [barcodeNote, setBarcodeNote] = useState<string | null>(null);
   const [labelProduct, setLabelProduct] = useState<LabelProduct | null>(null);
@@ -395,14 +412,19 @@ function ProductsPage() {
         if (clash && clash.id !== form.id)
           throw new Error(`Barcode already registered to ${clash.name} (SKU ${clash.sku})`);
       }
-      const payload = {
+      const payload: any = {
         sku: form.sku.trim(),
         barcode: normaliseBarcode(form.barcode) || null,
         barcode_type: normaliseBarcode(form.barcode) ? form.barcode_type || guessBarcodeType(form.barcode) : null,
         name: form.name.trim(),
         category_id: form.category_id,
+        subcategory: form.subcategory?.trim() || null,
         brand: form.brand.trim() || null,
         description: form.description.trim() || null,
+        active_formulation: form.active_formulation?.trim() || null,
+        business_type_data: form.business_type_data || {},
+        has_batches: form.has_batches || isMedicalBusiness(activeBusiness?.business_type),
+        has_variants: form.has_variants,
         purchase_price: Number(form.purchase_price),
         mrp: Number(form.mrp),
         selling_price: Number(form.selling_price),
@@ -503,11 +525,20 @@ function ProductsPage() {
         isUnder(cat?.id, catFilter) ||
         mapped.some((c) => isUnder(c, catFilter));
 
+      const formMatch = ((p as any).active_formulation ?? "").toLowerCase().includes(s);
+      const batchMatch = ((p as any).batch_number ?? "").toLowerCase().includes(s);
+      const brandMatch = ((p as any).brand ?? "").toLowerCase().includes(s);
+      const subcatMatch = ((p as any).subcategory ?? "").toLowerCase().includes(s);
+
       const match =
         !s ||
         p.name.toLowerCase().includes(s) ||
         p.sku.toLowerCase().includes(s) ||
-        (p.barcode ?? "").toLowerCase().includes(s);
+        (p.barcode ?? "").toLowerCase().includes(s) ||
+        formMatch ||
+        batchMatch ||
+        brandMatch ||
+        subcatMatch;
       return inCat && match;
     });
   }, [products, search, catFilter, catsByProduct]);
@@ -734,6 +765,7 @@ function ProductsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
+                  {isMedical && <TableHead>Active Formulation</TableHead>}
                   <TableHead>Category</TableHead>
                   <TableHead className="text-right">Purchase</TableHead>
                   <TableHead className="text-right">Selling</TableHead>
@@ -751,11 +783,38 @@ function ProductsPage() {
                         <div className="flex items-center gap-2.5">
                           <Thumb path={p.image_sm} alt={p.name} />
                           <div>
-                            <div className="font-medium">{p.name}</div>
-                            <div className="text-xs text-muted-foreground">{p.brand ?? "—"}</div>
+                            <div className="font-medium flex items-center gap-1.5">
+                              {p.name}
+                              {(p as any).has_batches && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-primary/40 text-primary">
+                                  Batches
+                                </Badge>
+                              )}
+                              {(p as any).has_variants && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-purple-400 text-purple-600">
+                                  Variants
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {p.brand ?? "—"} {p.sku ? `· ${p.sku}` : ""}
+                            </div>
                           </div>
                         </div>
                       </TableCell>
+
+                      {isMedical && (
+                        <TableCell>
+                          {(p as any).active_formulation ? (
+                            <div className="flex items-center gap-1.5 font-medium text-xs text-primary max-w-[200px] truncate" title={(p as any).active_formulation}>
+                              <Pill className="size-3.5 shrink-0" />
+                              <span className="truncate">{(p as any).active_formulation}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
+                      )}
 
                       <TableCell className="text-muted-foreground">
                         <div className="flex flex-wrap gap-1">
@@ -798,8 +857,13 @@ function ProductsPage() {
                               barcode_type: p.barcode_type ?? "",
                               name: p.name,
                               category_id: p.category_id,
+                              subcategory: (p as any).subcategory ?? "",
                               brand: p.brand ?? "",
                               description: p.description ?? "",
+                              active_formulation: (p as any).active_formulation ?? "",
+                              business_type_data: ((p as any).business_type_data as BusinessTypeFields) ?? {},
+                              has_batches: !!(p as any).has_batches,
+                              has_variants: !!(p as any).has_variants,
                               purchase_price: String(p.purchase_price),
                               mrp: String(p.mrp),
                               selling_price: String(p.selling_price),
@@ -895,12 +959,20 @@ function ProductsPage() {
           </DialogHeader>
 
           <Tabs value={step} onValueChange={setStep}>
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-4 sm:grid-cols-7 text-xs">
               <TabsTrigger value="category">1. Category</TabsTrigger>
               <TabsTrigger value="info">2. Info</TabsTrigger>
-              <TabsTrigger value="pricing">3. Pricing</TabsTrigger>
-              <TabsTrigger value="inventory">4. Inventory</TabsTrigger>
-              <TabsTrigger value="extra">5. Extra</TabsTrigger>
+              <TabsTrigger value="business">
+                3. {isMedical ? "Medical" : "Business"}
+              </TabsTrigger>
+              <TabsTrigger value="pricing">4. Pricing</TabsTrigger>
+              <TabsTrigger value="inventory">5. Inventory</TabsTrigger>
+              <TabsTrigger value="batches" disabled={!form.id}>
+                6. Batches
+              </TabsTrigger>
+              <TabsTrigger value="variants" disabled={!form.id}>
+                7. Variants
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="category" className="space-y-4 pt-4">
@@ -1319,6 +1391,13 @@ function ProductsPage() {
                   <Input value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
                 )}
               </F>
+              <F label="Subcategory (optional)">
+                <Input
+                  placeholder="e.g. Antibiotics, Daily Staples, Casual Wear"
+                  value={form.subcategory}
+                  onChange={(e) => setForm({ ...form, subcategory: e.target.value })}
+                />
+              </F>
               <F label="Brand">
                 <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
               </F>
@@ -1444,9 +1523,6 @@ function ProductsPage() {
                   </SelectContent>
                 </Select>
               </F>
-            </TabsContent>
-
-            <TabsContent value="extra" className="grid gap-3 pt-4 sm:grid-cols-2">
               <F label="Supplier">
                 <Select
                   value={form.supplier_id}
@@ -1471,26 +1547,59 @@ function ProductsPage() {
               <F label="Shelf">
                 <Input value={form.shelf} onChange={(e) => setForm({ ...form, shelf: e.target.value })} />
               </F>
-              <F label="Batch number">
-                <Input
-                  value={form.batch_number}
-                  onChange={(e) => setForm({ ...form, batch_number: e.target.value })}
+            </TabsContent>
+
+            <TabsContent value="business" className="space-y-4 pt-4">
+              <BusinessSpecificFields
+                businessType={activeBusiness?.business_type}
+                activeFormulation={form.active_formulation}
+                onActiveFormulationChange={(v) => setForm({ ...form, active_formulation: v })}
+                data={form.business_type_data || {}}
+                onChange={(data) => setForm({ ...form, business_type_data: data })}
+              />
+
+              <div className="flex items-center justify-between border-t pt-3">
+                <Button type="button" variant="outline" size="sm" onClick={() => setStep("info")}>
+                  Back to Info
+                </Button>
+                <Button type="button" size="sm" onClick={() => setStep("pricing")}>
+                  Continue to Pricing
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="batches" className="pt-4">
+              {form.id ? (
+                <ProductBatchManager
+                  productId={form.id}
+                  productName={form.name}
+                  defaultPurchasePrice={Number(form.purchase_price || 0)}
+                  defaultMrp={Number(form.mrp || 0)}
+                  defaultSellingPrice={Number(form.selling_price || 0)}
+                  defaultGstRate={Number(form.gst_rate || 0)}
                 />
-              </F>
-              <F label="Manufacturing date">
-                <Input
-                  type="date"
-                  value={form.manufacturing_date}
-                  onChange={(e) => setForm({ ...form, manufacturing_date: e.target.value })}
+              ) : (
+                <div className="p-8 text-center text-sm text-muted-foreground border rounded-lg">
+                  Please save the product first before adding individual batches.
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="variants" className="pt-4">
+              {form.id ? (
+                <ProductVariantManager
+                  productId={form.id}
+                  productName={form.name}
+                  defaultSku={form.sku}
+                  defaultPurchasePrice={Number(form.purchase_price || 0)}
+                  defaultMrp={Number(form.mrp || 0)}
+                  defaultSellingPrice={Number(form.selling_price || 0)}
                 />
-              </F>
-              <F label="Expiry date">
-                <Input
-                  type="date"
-                  value={form.expiry_date}
-                  onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}
-                />
-              </F>
+              ) : (
+                <div className="p-8 text-center text-sm text-muted-foreground border rounded-lg">
+                  Please save the product first before creating variants.
+                </div>
+              )}
             </TabsContent>
           </Tabs>
 

@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { usePurchases, useProducts, useSuppliers } from "@/lib/queries";
 import { useActiveBusiness } from "@/hooks/useTenant";
+import { isMedicalBusiness } from "@/lib/businessTypes";
 import { inr, dateFmt, dateTimeFmt } from "@/lib/format";
 import {
   uploadPurchaseReceipt,
@@ -67,8 +68,30 @@ export const Route = createFileRoute("/_authenticated/purchases")({
   component: PurchasesPage,
 });
 
-type Product = { id: string; name: string; sku: string; purchase_price: number; gst_rate: number };
-type PLine = { product_id: string; name: string; quantity: number; rate: number; discount: number; gst_rate: number };
+type Product = {
+  id: string;
+  name: string;
+  sku: string;
+  purchase_price: number;
+  gst_rate: number;
+  selling_price?: number;
+  active_formulation?: string | null;
+  has_batches?: boolean;
+};
+
+type PLine = {
+  product_id: string;
+  name: string;
+  quantity: number;
+  rate: number;
+  discount: number;
+  gst_rate: number;
+  batch_number?: string;
+  manufacturing_date?: string;
+  expiry_date?: string;
+  mrp?: number;
+  selling_price?: number;
+};
 
 type PurchaseRow = {
   id: string;
@@ -81,12 +104,21 @@ type PurchaseRow = {
   tax_amount: number;
   notes: string | null;
   suppliers: { name: string } | null;
-  purchase_items: { id: string; quantity: number; rate: number; total: number; products: { name: string; sku: string } | null }[];
+  purchase_items: {
+    id: string;
+    quantity: number;
+    rate: number;
+    total: number;
+    batch_number?: string | null;
+    expiry_date?: string | null;
+    products: { name: string; sku: string } | null;
+  }[];
 };
 
 function PurchasesPage() {
   const qc = useQueryClient();
   const { data: activeBiz } = useActiveBusiness();
+  const isMedical = isMedicalBusiness(activeBiz?.business_type);
   const { data, isLoading } = usePurchases();
   const rows = (data ?? []) as unknown as PurchaseRow[];
   const { data: suppliers } = useSuppliers();
@@ -139,6 +171,15 @@ function PurchasesPage() {
               rate: Number(p.purchase_price || 0),
               discount: 0,
               gst_rate: Number(p.gst_rate || 0),
+              ...(isMedical || p.has_batches
+                ? {
+                    batch_number: `B${Date.now().toString().slice(-4)}`,
+                    manufacturing_date: new Date().toISOString().slice(0, 10),
+                    expiry_date: "",
+                    mrp: Number(p.selling_price || 0),
+                    selling_price: Number(p.selling_price || 0),
+                  }
+                : {}),
             },
           ],
     );
@@ -172,6 +213,11 @@ function PurchasesPage() {
           rate: l.rate,
           discount: l.discount,
           gst_rate: l.gst_rate,
+          ...(l.batch_number ? { batch_number: l.batch_number } : {}),
+          ...(l.manufacturing_date ? { manufacturing_date: l.manufacturing_date } : {}),
+          ...(l.expiry_date ? { expiry_date: l.expiry_date } : {}),
+          ...(l.mrp != null ? { mrp: l.mrp } : {}),
+          ...(l.selling_price != null ? { selling_price: l.selling_price } : {}),
         })),
         p_paid_amount: Number(paid || 0),
         p_notes: finalNotes,
@@ -190,6 +236,7 @@ function PurchasesPage() {
       void qc.invalidateQueries({ queryKey: ["products"] });
       void qc.invalidateQueries({ queryKey: ["suppliers"] });
       void qc.invalidateQueries({ queryKey: ["inventory_txns"] });
+      void qc.invalidateQueries({ queryKey: ["product_batches"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -363,33 +410,111 @@ function PurchasesPage() {
                   lines.map((l, i) => {
                     const base = l.quantity * l.rate - l.discount;
                     return (
-                      <TableRow key={l.product_id}>
-                        <TableCell className="text-sm">{l.name}</TableCell>
-                        {(["quantity", "rate", "discount", "gst_rate"] as const).map((k) => (
-                          <TableCell key={k}>
-                            <Input
-                              className="h-8"
-                              type="number"
-                              value={l[k]}
-                              onChange={(e) =>
-                                setLines((prev) =>
-                                  prev.map((x, idx) => (idx === i ? { ...x, [k]: Number(e.target.value) || 0 } : x)),
-                                )
-                              }
-                            />
+                      <>
+                        <TableRow key={l.product_id}>
+                          <TableCell className="text-sm font-medium">{l.name}</TableCell>
+                          {(["quantity", "rate", "discount", "gst_rate"] as const).map((k) => (
+                            <TableCell key={k}>
+                              <Input
+                                className="h-8"
+                                type="number"
+                                value={l[k]}
+                                onChange={(e) =>
+                                  setLines((prev) =>
+                                    prev.map((x, idx) => (idx === i ? { ...x, [k]: Number(e.target.value) || 0 } : x)),
+                                  )
+                                }
+                              />
+                            </TableCell>
+                          ))}
+                          <TableCell className="tabular text-right">{inr(base + (base * l.gst_rate) / 100)}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setLines((prev) => prev.filter((_, idx) => idx !== i))}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
                           </TableCell>
-                        ))}
-                        <TableCell className="tabular text-right">{inr(base + (base * l.gst_rate) / 100)}</TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setLines((prev) => prev.filter((_, idx) => idx !== i))}
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                        </TableRow>
+                        {(isMedical || l.batch_number !== undefined) && (
+                          <TableRow key={`${l.product_id}-batch`} className="bg-muted/30">
+                            <TableCell colSpan={7} className="py-2 px-3">
+                              <div className="flex flex-wrap items-center gap-3 text-xs">
+                                <span className="font-semibold text-primary">Batch / Lot:</span>
+                                <div className="flex items-center gap-1.5">
+                                  <Label className="text-[11px] text-muted-foreground">Batch No:</Label>
+                                  <Input
+                                    className="h-7 w-28 text-xs font-mono"
+                                    placeholder="e.g. B104"
+                                    value={l.batch_number || ""}
+                                    onChange={(e) =>
+                                      setLines((prev) =>
+                                        prev.map((x, idx) => (idx === i ? { ...x, batch_number: e.target.value } : x)),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Label className="text-[11px] text-muted-foreground">Mfg Date:</Label>
+                                  <Input
+                                    type="date"
+                                    className="h-7 w-32 text-xs"
+                                    value={l.manufacturing_date || ""}
+                                    onChange={(e) =>
+                                      setLines((prev) =>
+                                        prev.map((x, idx) => (idx === i ? { ...x, manufacturing_date: e.target.value } : x)),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Label className="text-[11px] text-muted-foreground">Expiry Date *:</Label>
+                                  <Input
+                                    type="date"
+                                    className="h-7 w-32 text-xs"
+                                    value={l.expiry_date || ""}
+                                    onChange={(e) =>
+                                      setLines((prev) =>
+                                        prev.map((x, idx) => (idx === i ? { ...x, expiry_date: e.target.value } : x)),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Label className="text-[11px] text-muted-foreground">MRP:</Label>
+                                  <Input
+                                    type="number"
+                                    className="h-7 w-20 text-xs"
+                                    placeholder="MRP"
+                                    value={l.mrp || ""}
+                                    onChange={(e) =>
+                                      setLines((prev) =>
+                                        prev.map((x, idx) => (idx === i ? { ...x, mrp: Number(e.target.value) || 0 } : x)),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Label className="text-[11px] text-muted-foreground">Sale Price:</Label>
+                                  <Input
+                                    type="number"
+                                    className="h-7 w-20 text-xs"
+                                    placeholder="Sale"
+                                    value={l.selling_price || ""}
+                                    onChange={(e) =>
+                                      setLines((prev) =>
+                                        prev.map((x, idx) => (idx === i ? { ...x, selling_price: Number(e.target.value) || 0 } : x)),
+                                      )
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
                     );
                   })
                 )}
@@ -528,6 +653,11 @@ function PurchasesPage() {
                               <div className="font-medium text-sm">{it.products?.name ?? "—"}</div>
                               {it.products?.sku && (
                                 <div className="text-xs text-muted-foreground">{it.products.sku}</div>
+                              )}
+                              {it.batch_number && (
+                                <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                                  Lot: {it.batch_number} {it.expiry_date ? ` · Exp: ${it.expiry_date}` : ""}
+                                </div>
                               )}
                             </TableCell>
                             <TableCell className="tabular text-right">{it.quantity}</TableCell>

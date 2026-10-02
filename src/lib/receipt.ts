@@ -174,6 +174,9 @@ export interface ReceiptSale {
   items: ReceiptItem[];
   payments: ReceiptPayment[];
   cashier?: string | null;
+  business_id?: string;
+  customer_id?: string | null;
+  access_token?: string | null;
 }
 
 /** Loads a completed sale (tenant scoped by RLS) for printing. Never mutates anything. */
@@ -202,6 +205,9 @@ export async function fetchReceiptSale(saleId: string): Promise<ReceiptSale> {
 
   return {
     id: String(r["id"]),
+    business_id: String(r["business_id"] ?? ""),
+    customer_id: r["customer_id"] ? String(r["customer_id"]) : null,
+    access_token: r["access_token"] ? String(r["access_token"]) : null,
     invoice_no: String(r["invoice_no"]),
     invoice_date: String(r["invoice_date"]),
     customer_name: String(r["customer_name"] ?? "Walk-in Customer"),

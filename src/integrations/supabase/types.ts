@@ -946,11 +946,14 @@ export type Database = {
       }
       inventory_transactions: {
         Row: {
+          batch_id: string | null
           business_id: string
           created_at: string
           created_by: string | null
           id: string
+          new_stock: number | null
           notes: string | null
+          previous_stock: number | null
           product_id: string
           qty_in: number
           qty_out: number
@@ -960,14 +963,18 @@ export type Database = {
           txn_date: string
           txn_type: Database["public"]["Enums"]["inv_txn_type"]
           unit_cost: number
+          variant_id: string | null
           warehouse_id: string | null
         }
         Insert: {
+          batch_id?: string | null
           business_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
+          new_stock?: number | null
           notes?: string | null
+          previous_stock?: number | null
           product_id: string
           qty_in?: number
           qty_out?: number
@@ -977,14 +984,18 @@ export type Database = {
           txn_date?: string
           txn_type: Database["public"]["Enums"]["inv_txn_type"]
           unit_cost?: number
+          variant_id?: string | null
           warehouse_id?: string | null
         }
         Update: {
+          batch_id?: string | null
           business_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
+          new_stock?: number | null
           notes?: string | null
+          previous_stock?: number | null
           product_id?: string
           qty_in?: number
           qty_out?: number
@@ -994,6 +1005,7 @@ export type Database = {
           txn_date?: string
           txn_type?: Database["public"]["Enums"]["inv_txn_type"]
           unit_cost?: number
+          variant_id?: string | null
           warehouse_id?: string | null
         }
         Relationships: [
@@ -1286,13 +1298,165 @@ export type Database = {
           },
         ]
       }
+      product_batches: {
+        Row: {
+          batch_number: string
+          business_id: string
+          created_at: string
+          expiry_date: string | null
+          free_quantity: number
+          gst_rate: number
+          id: string
+          manufacturing_date: string | null
+          mrp: number
+          notes: string | null
+          product_id: string
+          purchase_date: string | null
+          purchase_invoice_no: string | null
+          purchase_price: number
+          quantity: number
+          selling_price: number
+          status: string
+          supplier_id: string | null
+          updated_at: string
+          warehouse_id: string | null
+        }
+        Insert: {
+          batch_number: string
+          business_id?: string
+          created_at?: string
+          expiry_date?: string | null
+          free_quantity?: number
+          gst_rate?: number
+          id?: string
+          manufacturing_date?: string | null
+          mrp?: number
+          notes?: string | null
+          product_id: string
+          purchase_date?: string | null
+          purchase_invoice_no?: string | null
+          purchase_price?: number
+          quantity?: number
+          selling_price?: number
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+          warehouse_id?: string | null
+        }
+        Update: {
+          batch_number?: string
+          business_id?: string
+          created_at?: string
+          expiry_date?: string | null
+          free_quantity?: number
+          gst_rate?: number
+          id?: string
+          manufacturing_date?: string | null
+          mrp?: number
+          notes?: string | null
+          product_id?: string
+          purchase_date?: string | null
+          purchase_invoice_no?: string | null
+          purchase_price?: number
+          quantity?: number
+          selling_price?: number
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_batches_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_batches_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_variants: {
+        Row: {
+          attributes: Json
+          barcode: string | null
+          business_id: string
+          created_at: string
+          current_stock: number
+          id: string
+          mrp: number
+          product_id: string
+          purchase_price: number
+          selling_price: number
+          sku: string | null
+          status: string
+          updated_at: string
+          variant_name: string
+        }
+        Insert: {
+          attributes?: Json
+          barcode?: string | null
+          business_id?: string
+          created_at?: string
+          current_stock?: number
+          id?: string
+          mrp?: number
+          product_id: string
+          purchase_price?: number
+          selling_price?: number
+          sku?: string | null
+          status?: string
+          updated_at?: string
+          variant_name: string
+        }
+        Update: {
+          attributes?: Json
+          barcode?: string | null
+          business_id?: string
+          created_at?: string
+          current_stock?: number
+          id?: string
+          mrp?: number
+          product_id?: string
+          purchase_price?: number
+          selling_price?: number
+          sku?: string | null
+          status?: string
+          updated_at?: string
+          variant_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
+          active_formulation: string | null
           barcode: string | null
           barcode_type: string | null
           batch_number: string | null
           brand: string | null
           business_id: string
+          business_type_data: Json | null
           category_id: string
           created_at: string
           current_stock: number
@@ -1300,6 +1464,8 @@ export type Database = {
           discount: number
           expiry_date: string | null
           gst_rate: number
+          has_batches: boolean
+          has_variants: boolean
           hsn_code: string | null
           id: string
           image_lg: string | null
@@ -1319,17 +1485,20 @@ export type Database = {
           shelf: string | null
           sku: string
           status: Database["public"]["Enums"]["record_status"]
+          subcategory: string | null
           supplier_id: string | null
           tax_inclusive: boolean
           unit: string
           updated_at: string
         }
         Insert: {
+          active_formulation?: string | null
           barcode?: string | null
           barcode_type?: string | null
           batch_number?: string | null
           brand?: string | null
           business_id?: string
+          business_type_data?: Json | null
           category_id: string
           created_at?: string
           current_stock?: number
@@ -1337,6 +1506,8 @@ export type Database = {
           discount?: number
           expiry_date?: string | null
           gst_rate?: number
+          has_batches?: boolean
+          has_variants?: boolean
           hsn_code?: string | null
           id?: string
           image_lg?: string | null
@@ -1356,17 +1527,20 @@ export type Database = {
           shelf?: string | null
           sku: string
           status?: Database["public"]["Enums"]["record_status"]
+          subcategory?: string | null
           supplier_id?: string | null
           tax_inclusive?: boolean
           unit?: string
           updated_at?: string
         }
         Update: {
+          active_formulation?: string | null
           barcode?: string | null
           barcode_type?: string | null
           batch_number?: string | null
           brand?: string | null
           business_id?: string
+          business_type_data?: Json | null
           category_id?: string
           created_at?: string
           current_stock?: number
@@ -1374,6 +1548,8 @@ export type Database = {
           discount?: number
           expiry_date?: string | null
           gst_rate?: number
+          has_batches?: boolean
+          has_variants?: boolean
           hsn_code?: string | null
           id?: string
           image_lg?: string | null
@@ -1393,6 +1569,7 @@ export type Database = {
           shelf?: string | null
           sku?: string
           status?: Database["public"]["Enums"]["record_status"]
+          subcategory?: string | null
           supplier_id?: string | null
           tax_inclusive?: boolean
           unit?: string
@@ -1603,46 +1780,64 @@ export type Database = {
       }
       purchase_items: {
         Row: {
+          batch_id: string | null
+          batch_number: string | null
           business_id: string
           created_at: string
           discount: number
+          expiry_date: string | null
           gst_rate: number
           id: string
+          mrp: number | null
           product_id: string
           purchase_id: string
           quantity: number
           rate: number
           returned_qty: number
+          selling_price: number | null
           tax_amount: number
           total: number
+          variant_id: string | null
         }
         Insert: {
+          batch_id?: string | null
+          batch_number?: string | null
           business_id?: string
           created_at?: string
           discount?: number
+          expiry_date?: string | null
           gst_rate?: number
           id?: string
+          mrp?: number | null
           product_id: string
           purchase_id: string
           quantity: number
           rate: number
           returned_qty?: number
+          selling_price?: number | null
           tax_amount?: number
           total?: number
+          variant_id?: string | null
         }
         Update: {
+          batch_id?: string | null
+          batch_number?: string | null
           business_id?: string
           created_at?: string
           discount?: number
+          expiry_date?: string | null
           gst_rate?: number
           id?: string
+          mrp?: number | null
           product_id?: string
           purchase_id?: string
           quantity?: number
           rate?: number
           returned_qty?: number
+          selling_price?: number | null
           tax_amount?: number
           total?: number
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -1927,10 +2122,13 @@ export type Database = {
       }
       sale_items: {
         Row: {
+          batch_id: string | null
+          batch_number: string | null
           business_id: string
           cost_price: number
           created_at: string
           discount: number
+          expiry_date: string | null
           gst_rate: number
           hsn_code: string | null
           id: string
@@ -1943,12 +2141,16 @@ export type Database = {
           tax_amount: number
           taxable_amount: number
           total: number
+          variant_id: string | null
         }
         Insert: {
+          batch_id?: string | null
+          batch_number?: string | null
           business_id?: string
           cost_price?: number
           created_at?: string
           discount?: number
+          expiry_date?: string | null
           gst_rate?: number
           hsn_code?: string | null
           id?: string
@@ -1961,12 +2163,16 @@ export type Database = {
           tax_amount?: number
           taxable_amount?: number
           total?: number
+          variant_id?: string | null
         }
         Update: {
+          batch_id?: string | null
+          batch_number?: string | null
           business_id?: string
           cost_price?: number
           created_at?: string
           discount?: number
+          expiry_date?: string | null
           gst_rate?: number
           hsn_code?: string | null
           id?: string
@@ -1979,6 +2185,7 @@ export type Database = {
           tax_amount?: number
           taxable_amount?: number
           total?: number
+          variant_id?: string | null
         }
         Relationships: [
           {

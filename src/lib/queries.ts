@@ -284,7 +284,7 @@ export function useSales() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales")
-        .select("*, customers(name), sale_items(*)")
+        .select("*, customers(name, mobile), sale_items(*)")
         .order("invoice_date", { ascending: false });
       if (error) throw error;
       return data;
@@ -312,7 +312,7 @@ export function useInventoryTxns(productId?: string) {
     queryFn: async () => {
       let q = supabase
         .from("inventory_transactions")
-        .select("*, products(name,sku,unit)")
+        .select("*, products(name,sku,unit,active_formulation), product_batches(batch_number,expiry_date)")
         .order("txn_date", { ascending: false })
         .limit(500);
       if (productId) q = q.eq("product_id", productId);

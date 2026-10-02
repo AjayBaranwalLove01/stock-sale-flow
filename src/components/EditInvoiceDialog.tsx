@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { QuickAddCustomerDialog } from "@/components/QuickAddCustomerDialog";
+import { DeleteInvoiceDialog } from "@/components/DeleteInvoiceDialog";
 
 export interface EditInvoiceLine {
   id?: string | undefined;
@@ -115,6 +116,7 @@ export function EditInvoiceDialog({
   const [isCreditSale, setIsCreditSale] = useState(false);
   const [lines, setLines] = useState<EditInvoiceLine[]>([]);
   const [newCustomerOpen, setNewCustomerOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   // Product search state for adding items
   const [productSearch, setProductSearch] = useState("");
@@ -1202,24 +1204,41 @@ export function EditInvoiceDialog({
           </div>
         )}
 
-        <DialogFooter className="mt-4 gap-2 border-t pt-3">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={saveMutation.isPending}
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            disabled={saveMutation.isPending || loading || lines.length === 0}
-            onClick={() => saveMutation.mutate()}
-            className="gap-1.5"
-          >
-            <Save className="size-4" />
-            {saveMutation.isPending ? "Saving Modifications..." : "Save Invoice Changes"}
-          </Button>
+        <DialogFooter className="mt-4 flex flex-row items-center justify-between border-t pt-3 w-full">
+          {isAdmin && saleId ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={saveMutation.isPending}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
+              onClick={() => setConfirmDeleteOpen(true)}
+            >
+              <Trash2 className="size-4" />
+              Delete Invoice
+            </Button>
+          ) : (
+            <div />
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saveMutation.isPending}
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={saveMutation.isPending || loading || lines.length === 0}
+              onClick={() => saveMutation.mutate()}
+              className="gap-1.5"
+            >
+              <Save className="size-4" />
+              {saveMutation.isPending ? "Saving Modifications..." : "Save Invoice Changes"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
 
@@ -1229,6 +1248,30 @@ export function EditInvoiceDialog({
         onCustomerCreated={(c) => {
           setCustomerId(c.id);
           setCustomerName(c.name);
+        }}
+      />
+
+      <DeleteInvoiceDialog
+        sale={
+          saleId && saleNumber
+            ? {
+                id: saleId,
+                invoice_no: saleNumber,
+                invoice_date: invoiceDate,
+                customer_name: customerName,
+                customer_id: customerId === "walkin" ? null : customerId,
+                grand_total: calculations.grandTotal,
+                paid_amount: Number(paid) || 0,
+                business_id: null,
+              }
+            : null
+        }
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        onSuccess={() => {
+          setConfirmDeleteOpen(false);
+          onOpenChange(false);
+          onSuccess?.();
         }}
       />
     </Dialog>

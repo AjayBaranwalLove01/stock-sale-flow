@@ -159,7 +159,7 @@ function SalesReturns() {
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.return_no}</TableCell>
                   <TableCell className="text-sm">{dateTimeFmt(r.return_date)}</TableCell>
-                  <TableCell className="text-sm">{r.sales?.invoice_no ?? "—"}</TableCell>
+                  <TableCell className="text-sm font-mono">{r.sales?.invoice_no ?? "—"}</TableCell>
                   <TableCell className="text-sm">{r.customers?.name ?? "Walk-in"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.reason || "—"}</TableCell>
                   <TableCell className="tabular text-right">{inr(r.total_amount)}</TableCell>

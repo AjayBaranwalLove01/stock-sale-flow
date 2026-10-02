@@ -36,6 +36,7 @@ import {
 import { PageHeader, StatCard, EmptyState, LoadingRows } from "@/components/shared";
 import { inr, dateFmt, dateTimeFmt, downloadCsv } from "@/lib/format";
 import { AddOldUdharDialog } from "@/components/AddOldUdharDialog";
+import { ReceiptActions } from "@/components/ReceiptPrint";
 import {
   useCreditTransactions,
   useCollectionEntries,
@@ -262,6 +263,7 @@ function CreditTable({ rows, loading }: { rows: CreditTxn[]; loading?: boolean }
                 <TableHead className="text-right">Paid</TableHead>
                 <TableHead className="text-right">Outstanding</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -277,7 +279,7 @@ function CreditTable({ rows, loading }: { rows: CreditTxn[]; loading?: boolean }
                   <TableRow key={t.id}>
                     <TableCell>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-medium">{t.reference_no}</span>
+                        <span className="font-medium font-mono">{t.reference_no}</span>
                         {isOldUdhar && (
                           <Badge
                             variant="outline"
@@ -308,6 +310,23 @@ function CreditTable({ rows, loading }: { rows: CreditTxn[]; loading?: boolean }
                     </TableCell>
                     <TableCell>
                       <Badge variant={statusTone(st)}>{CREDIT_STATUS_LABEL[st]}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {t.sale_id ? (
+                        <ReceiptActions
+                          saleId={t.sale_id}
+                          reprint
+                          saleDetails={{
+                            invoice_no: t.reference_no,
+                            invoice_date: t.credit_date,
+                            grand_total: Number(t.original_amount),
+                            customer_name: t.customers?.name ?? "Customer",
+                            customer_id: t.customer_id,
+                            customer_mobile: t.customers?.mobile,
+                            business_id: t.business_id,
+                          }}
+                        />
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 );
