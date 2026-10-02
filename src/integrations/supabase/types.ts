@@ -1010,6 +1010,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "inventory_transactions_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "product_batches"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inventory_transactions_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: false
@@ -1035,6 +1042,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "storefront_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_transactions_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
           {
@@ -1228,6 +1242,118 @@ export type Database = {
           },
         ]
       }
+      product_batches: {
+        Row: {
+          batch_number: string
+          business_id: string
+          created_at: string
+          expiry_date: string | null
+          free_quantity: number | null
+          gst_rate: number
+          id: string
+          manufacturing_date: string | null
+          mrp: number
+          notes: string | null
+          product_id: string
+          purchase_date: string | null
+          purchase_invoice_no: string | null
+          purchase_price: number
+          quantity: number
+          selling_price: number
+          status: string
+          supplier_id: string | null
+          updated_at: string
+          warehouse_id: string | null
+        }
+        Insert: {
+          batch_number: string
+          business_id?: string
+          created_at?: string
+          expiry_date?: string | null
+          free_quantity?: number | null
+          gst_rate?: number
+          id?: string
+          manufacturing_date?: string | null
+          mrp?: number
+          notes?: string | null
+          product_id: string
+          purchase_date?: string | null
+          purchase_invoice_no?: string | null
+          purchase_price?: number
+          quantity?: number
+          selling_price?: number
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+          warehouse_id?: string | null
+        }
+        Update: {
+          batch_number?: string
+          business_id?: string
+          created_at?: string
+          expiry_date?: string | null
+          free_quantity?: number | null
+          gst_rate?: number
+          id?: string
+          manufacturing_date?: string | null
+          mrp?: number
+          notes?: string | null
+          product_id?: string
+          purchase_date?: string | null
+          purchase_invoice_no?: string | null
+          purchase_price?: number
+          quantity?: number
+          selling_price?: number
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+          warehouse_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_batches_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_batches_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_batches_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_batches_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_batches_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_batches_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_categories: {
         Row: {
           business_id: string
@@ -1298,90 +1424,6 @@ export type Database = {
           },
         ]
       }
-      product_batches: {
-        Row: {
-          batch_number: string
-          business_id: string
-          created_at: string
-          expiry_date: string | null
-          free_quantity: number
-          gst_rate: number
-          id: string
-          manufacturing_date: string | null
-          mrp: number
-          notes: string | null
-          product_id: string
-          purchase_date: string | null
-          purchase_invoice_no: string | null
-          purchase_price: number
-          quantity: number
-          selling_price: number
-          status: string
-          supplier_id: string | null
-          updated_at: string
-          warehouse_id: string | null
-        }
-        Insert: {
-          batch_number: string
-          business_id?: string
-          created_at?: string
-          expiry_date?: string | null
-          free_quantity?: number
-          gst_rate?: number
-          id?: string
-          manufacturing_date?: string | null
-          mrp?: number
-          notes?: string | null
-          product_id: string
-          purchase_date?: string | null
-          purchase_invoice_no?: string | null
-          purchase_price?: number
-          quantity?: number
-          selling_price?: number
-          status?: string
-          supplier_id?: string | null
-          updated_at?: string
-          warehouse_id?: string | null
-        }
-        Update: {
-          batch_number?: string
-          business_id?: string
-          created_at?: string
-          expiry_date?: string | null
-          free_quantity?: number
-          gst_rate?: number
-          id?: string
-          manufacturing_date?: string | null
-          mrp?: number
-          notes?: string | null
-          product_id?: string
-          purchase_date?: string | null
-          purchase_invoice_no?: string | null
-          purchase_price?: number
-          quantity?: number
-          selling_price?: number
-          status?: string
-          supplier_id?: string | null
-          updated_at?: string
-          warehouse_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_batches_business_id_fkey"
-            columns: ["business_id"]
-            isOneToOne: false
-            referencedRelation: "businesses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_batches_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       product_variants: {
         Row: {
           attributes: Json
@@ -1440,10 +1482,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "product_variants_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_businesses"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "product_variants_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_products"
             referencedColumns: ["id"]
           },
         ]
@@ -1841,6 +1897,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "purchase_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "product_batches"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "purchase_items_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: false
@@ -1873,6 +1936,13 @@ export type Database = {
             columns: ["purchase_id"]
             isOneToOne: false
             referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -2189,6 +2259,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "sale_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "product_batches"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sale_items_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: false
@@ -2221,6 +2298,13 @@ export type Database = {
             columns: ["sale_id"]
             isOneToOne: false
             referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -3797,6 +3881,7 @@ export type Database = {
         Args: { p_product_id?: string }
         Returns: string
       }
+      get_business_type: { Args: { p_business_id: string }; Returns: string }
       godown_enabled: { Args: { _business_id: string }; Returns: boolean }
       has_role: {
         Args: {

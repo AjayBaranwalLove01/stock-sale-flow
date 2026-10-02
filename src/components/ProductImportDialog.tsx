@@ -227,7 +227,8 @@ export function ProductImportDialog({
                   expiry_date: expiryDate,
                   purchase_price: Number(r.raw["PurchasePrice"] ?? 0) || 0,
                   mrp: Number(r.raw["MRP"] ?? 0) || 0,
-                  sale_price: Number(r.raw["SellingPrice"] ?? 0) || 0,
+                  selling_price: Number(r.raw["SellingPrice"] ?? 0) || 0,
+                  gst_rate: Number(r.raw["GST"] ?? 0) || 0,
                   quantity: opening,
                   status: "active",
                 })
