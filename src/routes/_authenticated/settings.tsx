@@ -17,6 +17,8 @@ import { useSettings, logAudit } from "@/lib/queries";
 import { UNITS, GST_RATES } from "@/lib/format";
 import { PRINTER_CONNECTIONS, PRINTER_TYPES, useReceipts } from "@/lib/receipt";
 import { PrintQueueList, TestPrintControl } from "@/components/ReceiptPrint";
+import { useActiveBusiness } from "@/hooks/useTenant";
+import { BUSINESS_TYPES } from "@/lib/businessTypes";
 
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -72,12 +74,20 @@ interface Form {
 
 function SettingsPage() {
   const { data, isLoading } = useSettings();
+  const { data: activeBusiness } = useActiveBusiness();
   const qc = useQueryClient();
   const [f, setF] = useState<Form>({});
+  const [businessType, setBusinessType] = useState<string>("Medical / Pharmacy");
 
   useEffect(() => {
     if (data) setF({ ...(data as unknown as Form) });
   }, [data]);
+
+  useEffect(() => {
+    if (activeBusiness?.business_type) {
+      setBusinessType(activeBusiness.business_type);
+    }
+  }, [activeBusiness]);
 
   const set = (k: keyof Form, v: Val) => setF((p) => ({ ...p, [k]: v }));
 
@@ -125,11 +135,21 @@ function SettingsPage() {
         .update(payload)
         .eq("id", String(f.id));
       if (error) throw error;
+
+      if (activeBusiness?.id && businessType) {
+        await supabase
+          .from("businesses")
+          .update({ business_type: businessType })
+          .eq("id", activeBusiness.id);
+      }
+
       await logAudit("Settings", "Updated", String(f.id), data, payload);
     },
     onSuccess: () => {
       toast.success("Settings saved");
       void qc.invalidateQueries({ queryKey: ["business_settings"] });
+      void qc.invalidateQueries({ queryKey: ["active_business"] });
+      void qc.invalidateQueries({ queryKey: ["businesses"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -160,6 +180,24 @@ function SettingsPage() {
         <TabsContent value="business" className="mt-4">
           <Card className="grid gap-4 p-5 md:grid-cols-2">
             <Field label="Business Name *" v={f.business_name} onChange={(v) => set("business_name", v)} />
+            <div>
+              <Label>Business Type</Label>
+              <Select value={businessType} onValueChange={(v) => setBusinessType(v)}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BUSINESS_TYPES.map((bt) => (
+                    <SelectItem key={bt} value={bt}>
+                      {bt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Determines business-specific product fields (e.g. Active Formulation & Batches for Medical, Model/Warranty for Electronics, Size/Color for Clothing).
+              </p>
+            </div>
             <Field label="GSTIN" v={f.gstin} onChange={(v) => set("gstin", v)} />
             <Field label="Phone" v={f.phone} onChange={(v) => set("phone", v)} />
             <Field label="Email" v={f.email} onChange={(v) => set("email", v)} />
