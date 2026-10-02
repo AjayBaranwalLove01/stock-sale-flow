@@ -25,13 +25,15 @@ import { toast } from "sonner";
 import { useCategories, useProducts } from "@/lib/queries";
 import { downloadCsv } from "@/lib/format";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { useActiveBusiness } from "@/hooks/useTenant";
+import { isMedicalBusiness } from "@/lib/businessTypes";
 
 interface ParsedRow {
   raw: Record<string, string>;
   errors: string[];
 }
 
-const TEMPLATE = [
+const GENERAL_TEMPLATE = [
   {
     Category: "Electronics",
     Subcategory: "Mobile",
@@ -44,6 +46,41 @@ const TEMPLATE = [
     GST: "18",
     OpeningStock: "10",
     Unit: "Piece",
+  },
+];
+
+const MEDICAL_TEMPLATE = [
+  {
+    Category: "Medicines",
+    Subcategory: "Antibiotics",
+    ProductName: "Amoxicillin 500mg",
+    ActiveFormulation: "Amoxicillin 500 mg + Clavulanic Acid 125 mg",
+    SKU: "MED-AMX-500",
+    Barcode: "8901234567891",
+    BatchNumber: "AMX2401",
+    ExpiryDate: "2027-12-31",
+    PurchasePrice: "85",
+    SellingPrice: "120",
+    MRP: "140",
+    GST: "12",
+    OpeningStock: "50",
+    Unit: "Strip",
+  },
+  {
+    Category: "Medicines",
+    Subcategory: "Analgesics",
+    ProductName: "Paracetamol 500mg",
+    ActiveFormulation: "Paracetamol 500 mg",
+    SKU: "MED-PARA-500",
+    Barcode: "8901234567892",
+    BatchNumber: "PCM2409",
+    ExpiryDate: "2027-06-30",
+    PurchasePrice: "15",
+    SellingPrice: "25",
+    MRP: "30",
+    GST: "12",
+    OpeningStock: "100",
+    Unit: "Strip",
   },
 ];
 
@@ -88,6 +125,13 @@ export function ProductImportDialog({
   const qc = useQueryClient();
   const { data: categories } = useCategories();
   const { data: products } = useProducts();
+  const { data: activeBusiness } = useActiveBusiness();
+  const isMedical = isMedicalBusiness(activeBusiness?.business_type);
+  const currentTemplate = isMedical ? MEDICAL_TEMPLATE : GENERAL_TEMPLATE;
+  const templateFileName = isMedical
+    ? "medical-product-import-template.csv"
+    : "product-import-template.csv";
+
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<{
@@ -133,6 +177,23 @@ export function ProductImportDialog({
         const catName = (r.raw["Subcategory"] || r.raw["Category"] || "").trim();
         const cat = (categories ?? []).find((c) => c.name.toLowerCase() === catName.toLowerCase())!;
         const opening = Number(r.raw["OpeningStock"] ?? 0) || 0;
+        const activeFormulation =
+          r.raw["ActiveFormulation"] ||
+          r.raw["Active Formulation"] ||
+          r.raw["active_formulation"] ||
+          r.raw["Formulation"] ||
+          null;
+        const batchNumber =
+          r.raw["BatchNumber"] ||
+          r.raw["Batch Number"] ||
+          r.raw["Batch"] ||
+          (isMedical && opening > 0 ? `LOT-${r.raw["SKU"]}` : null);
+        const expiryDate =
+          r.raw["ExpiryDate"] ||
+          r.raw["Expiry Date"] ||
+          r.raw["Expiry"] ||
+          null;
+
         try {
           const { data, error } = await supabase
             .from("products")
@@ -141,25 +202,58 @@ export function ProductImportDialog({
               sku: r.raw["SKU"]!,
               barcode: r.raw["Barcode"] || null,
               category_id: cat.id,
+              subcategory: r.raw["Subcategory"] || null,
+              active_formulation: activeFormulation ? activeFormulation.trim() : null,
+              has_batches: isMedical,
               purchase_price: Number(r.raw["PurchasePrice"] ?? 0) || 0,
               selling_price: Number(r.raw["SellingPrice"] ?? 0) || 0,
               mrp: Number(r.raw["MRP"] ?? 0) || 0,
               gst_rate: Number(r.raw["GST"] ?? 0) || 0,
-              unit: r.raw["Unit"] || "Piece",
+              unit: r.raw["Unit"] || (isMedical ? "Strip" : "Piece"),
               opening_stock: opening,
             })
             .select()
             .single();
           if (error) throw error;
+
+          let batchId: string | null = null;
+          if (isMedical && opening > 0 && batchNumber) {
+            try {
+              const res = (await (supabase.from("product_batches" as any) as any)
+                .insert({
+                  business_id: data.business_id,
+                  product_id: data.id,
+                  batch_number: batchNumber,
+                  expiry_date: expiryDate,
+                  purchase_price: Number(r.raw["PurchasePrice"] ?? 0) || 0,
+                  mrp: Number(r.raw["MRP"] ?? 0) || 0,
+                  sale_price: Number(r.raw["SellingPrice"] ?? 0) || 0,
+                  quantity: opening,
+                  status: "active",
+                })
+                .select("id")
+                .single()) as { data?: { id?: string } | null };
+              if (res?.data?.id) batchId = res.data.id;
+            } catch (err) {
+              console.warn("Could not create batch during import:", err);
+            }
+          }
+
           if (opening > 0) {
-            const { error: txErr } = await supabase.from("inventory_transactions").insert({
+            const txnPayload: any = {
               product_id: data.id,
               txn_type: "opening",
               reference_type: "import",
               reference_no: `IMP-${data.sku}`,
               qty_in: opening,
               unit_cost: Number(r.raw["PurchasePrice"] ?? 0) || 0,
-            });
+            };
+            if (batchId) txnPayload.batch_id = batchId;
+            if (batchNumber) {
+              txnPayload.notes = `Batch: ${batchNumber}${expiryDate ? ` | Exp: ${expiryDate}` : ""}`;
+            }
+
+            const { error: txErr } = await supabase.from("inventory_transactions").insert(txnPayload);
             if (txErr) throw txErr;
           }
           added++;
@@ -182,6 +276,7 @@ export function ProductImportDialog({
       void qc.invalidateQueries({ queryKey: ["products"] });
       void qc.invalidateQueries({ queryKey: ["product-categories"] });
       void qc.invalidateQueries({ queryKey: ["category-product-counts"] });
+      void qc.invalidateQueries({ queryKey: ["product_batches"] });
     },
     onError: (e: Error) => {
       setProgress(null);
@@ -191,16 +286,22 @@ export function ProductImportDialog({
 
   const validCount = rows.filter((r) => !r.errors.length).length;
   const importedCount = progress ? progress.done : (result?.added ?? 0);
+  const hasFormulationInRows = rows.some(
+    (r) => r.raw["ActiveFormulation"] || r.raw["Active Formulation"] || r.raw["active_formulation"],
+  );
 
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Import products from CSV</DialogTitle>
+          <DialogTitle>
+            Import products from CSV {isMedical && <Badge variant="secondary" className="ml-2 font-normal">Medical / Pharmacy</Badge>}
+          </DialogTitle>
           <DialogDescription>
-            Columns: Category, Subcategory, ProductName, SKU, Barcode, PurchasePrice, SellingPrice,
-            MRP, GST, OpeningStock, Unit.
+            {isMedical
+              ? "Columns: Category, Subcategory, ProductName, ActiveFormulation, SKU, Barcode, BatchNumber, ExpiryDate, PurchasePrice, SellingPrice, MRP, GST, OpeningStock, Unit."
+              : "Columns: Category, Subcategory, ProductName, SKU, Barcode, PurchasePrice, SellingPrice, MRP, GST, OpeningStock, Unit."}
           </DialogDescription>
         </DialogHeader>
 
@@ -215,8 +316,8 @@ export function ProductImportDialog({
               setRows(validate(parseCsv(text)));
             }}
           />
-          <Button variant="outline" onClick={() => downloadCsv("product-import-template.csv", TEMPLATE)}>
-            Download template
+          <Button variant="outline" onClick={() => downloadCsv(templateFileName, currentTemplate)}>
+            Download {isMedical ? "Medical template" : "Template"}
           </Button>
         </div>
 
@@ -242,6 +343,9 @@ export function ProductImportDialog({
                         <TableRow>
                           <TableHead className="w-10" />
                           <TableHead>Product</TableHead>
+                          {(isMedical || hasFormulationInRows) && (
+                            <TableHead>Active Formulation</TableHead>
+                          )}
                           <TableHead>SKU</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead>Issues</TableHead>
@@ -262,7 +366,17 @@ export function ProductImportDialog({
                           <CheckCircle2 className="size-4 text-success" />
                         )}
                       </TableCell>
-                      <TableCell>{r.raw["ProductName"] || r.raw["Product Name"]}</TableCell>
+                      <TableCell className="font-medium">
+                        {r.raw["ProductName"] || r.raw["Product Name"]}
+                      </TableCell>
+                      {(isMedical || hasFormulationInRows) && (
+                        <TableCell className="text-xs text-muted-foreground font-mono">
+                          {r.raw["ActiveFormulation"] ||
+                            r.raw["Active Formulation"] ||
+                            r.raw["active_formulation"] ||
+                            "—"}
+                        </TableCell>
+                      )}
                       <TableCell className="font-mono text-xs">{r.raw["SKU"]}</TableCell>
                       <TableCell>{r.raw["Subcategory"] || r.raw["Category"]}</TableCell>
                       <TableCell className="text-xs text-destructive">
